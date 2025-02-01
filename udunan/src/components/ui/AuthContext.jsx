@@ -62,21 +62,18 @@ export const AuthProvider = ({ children }) => {
   });
 
   // Validate Authentication State
-  useEffect(() => {
-    const storedToken = Cookies.get('authToken');
+  useEffect(() => { 
+    const validateAuth = async () => {
+      const storedToken = Cookies.get('authToken');
       try {
-       
         if (user?.userId && signerStatus.isConnected && !signerStatus.isInitializing) {
           if (storedToken) {
             setToken(storedToken);
             setIsLoggedIn(true);
-          } else {
-            // If no token but user is connected, attempt to login
-            login();
+          } else if (user.email) {
+            // If user has email but no token, attempt login
+            await login();
           }
-        } else {
-          setIsLoggedIn(false);
-          setToken(null);
         }
       } catch (error) {
         console.error('Auth validation error:', error);
@@ -85,50 +82,67 @@ export const AuthProvider = ({ children }) => {
       } finally {
         setIsLoading(false);
       }
-    }, [user, signerStatus.isConnected, signerStatus.isInitializing]);
+    };
 
+    validateAuth();
+  }, [user, signerStatus.isConnected, signerStatus.isInitializing]);
 
-    
-    const login = async () => {
+  const login = async () => {
+    try {
+      if (!user?.email) {
+        throw new Error("User email is required");
+      }
+
+      console.log("Attempting login for:", user.email);
+      
       try {
-        if (!user?.email) {
-          throw new Error("User email is required");
-        }
-    
         const { data } = await loginMutation({
-          variables: { email: user.email }
+          variables: { email: user.email },
+          onError: (error) => {
+            console.error("Login Mutation Error Details:", error);
+          }
         });
-    
+
         if (data?.login?.token) {
-          Cookies.set('authToken', data.login.token);
+          Cookies.set('authToken', data.login.token, { expires: 7 });
           setToken(data.login.token);
           setIsLoggedIn(true);
           toast.success('Login successful!');
           return;
         }
       } catch (loginError) {
-        console.error('Login failed:', loginError.message);
-    
-        if (loginError.message.includes('User not found')) {
-          // Attempt registration if the user is not found
-          const { data: registerData } = await registerMutation({
-            variables: { email: user.email, userId : user.userId, address : user.address, type: user.type, orgId: user.orgId}
-          });
-    
-          if (registerData?.register?.token) {
-            Cookies.set('authToken', registerData.register.token);
-            setToken(registerData.register.token);
-            setIsLoggedIn(true);
-            toast.success('Registration successful!');
-            return;
-          } else {
-            throw new Error('Registration failed.');
+        console.log("Login failed, attempting registration:", loginError.message);
+        
+        const { data: registerData } = await registerMutation({
+          variables: { 
+            email: user.email, 
+            userId: user.userId, 
+            address: user.address, 
+            type: user.type, 
+            orgId: user.orgId
+          },
+          onError: (error) => {
+            console.error("Registration Mutation Error Details:", error);
           }
+        });
+
+        if (registerData?.register?.token) {
+          Cookies.set('authToken', registerData.register.token, { expires: 7 });
+          setToken(registerData.register.token);
+          setIsLoggedIn(true);
+          toast.success('Registration successful!');
+          return;
         } else {
-          throw loginError;
+          console.error("No token received from registration");
+          throw new Error('Registration failed - No token received');
         }
       }
-    };
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      toast.error(error.message || 'Authentication failed. Please try again.');
+      throw error;
+    }
+  };
     
   
 

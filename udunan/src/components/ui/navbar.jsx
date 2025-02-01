@@ -72,18 +72,34 @@ export function Navbar() {
 
   const handleLoginSuccess = async () => {
     try {
-
-        await login(); // Call login from AuthContext
-        toast.success('You are now logged in!');
-        setIsDialogOpenLogin(false);
-    
-      console.log("ini apa?",data?.login);
+      await login();
+      setIsDialogOpenLogin(false);
+      toast.success('You are now logged in!');
+      await refetchprofile(); // Refresh user profile data
     } catch (error) {
       console.error('Login failed:', error);
       toast.error('Failed to login. Please try again.');
     }
   };
 
+  // Update the useQuery to include better error handling
+  // const {
+  //   data: profileData,
+  //   loading: profileLoading,
+  //   error: profileError,
+  //   refetch: refetchprofile
+  // } = useQuery(FETCH_USER_PROFILE, {
+  //   fetchPolicy: "network-only", // Always fetch fresh data
+  //   context: {
+  //     headers: {
+  //       Authorization: token ? `Bearer ${token}` : "",
+  //     },
+  //   },
+  //   skip: !token || !isLoggedIn,
+  //   onError: (error) => {
+  //     console.error("User Profile Query Error:", error);
+  //   },
+  // });
 
   const handleSignOut = async () => {
     try {
@@ -128,6 +144,7 @@ export function Navbar() {
   console.log("User email before login mutation navbar.jsx:", user?.email);
 
 
+  // Remove this duplicate query declaration
   const {
     data: profileData,
     loading: profileLoading,
@@ -146,8 +163,9 @@ export function Navbar() {
     },
   });
 
-  const currentUser = profileData?.usermanage?.id|| [];
-  const currentUserPict = profileData?.usermanage?.userimg|| [];
+  // Keep these variables that use the query results
+  const currentUser = profileData?.usermanage?.id || [];
+  const currentUserPict = profileData?.usermanage?.userimg || [];
 
 
   // Navigation handlers
@@ -192,11 +210,15 @@ export function Navbar() {
 
   // Profile Error Handling (non-blocking)
 
+  // Remove or comment out this block as it's causing the error
   if (profileError) {
     console.warn("Profile data could not be loaded.");
-  } else if (profileData && profileData.user) {
-    user = profileData.user;
   }
+  // Remove the reassignment of user
+  // if (profileData && profileData.user) {
+  //   user = profileData.user; // This line was causing the error
+  // }
+
   return (
     <nav className='sticky top-0 z-50'>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

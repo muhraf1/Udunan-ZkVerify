@@ -30,7 +30,7 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// CORS Configuration
+// Update CORS Configuration
 const corsOptions = {
   origin: [FRONTEND_URL],
   credentials: true,
@@ -42,9 +42,9 @@ const corsOptions = {
     'x-apollo-operation-name',
     'apollo-require-preflight',
   ],
+  exposedHeaders: ['*', 'Authorization'],
   maxAge: 86400,
 };
-app.use(cors(corsOptions));
 
 /* ---------------------------------------------
 ✅ TOKEN VERIFICATION
@@ -106,37 +106,44 @@ const server = new ApolloServer({
       ? ApolloServerPluginLandingPageLocalDefault({ embed: false })
       : ApolloServerPluginLandingPageLocalDefault({ embed: true }),
   ],
+  includeStacktraceInErrorResponses: process.env.NODE_ENV !== 'production',
   formatError: (error) => {
-    const formattedError = {
+    console.error('GraphQL Error:', {
       message: error.message,
       locations: error.locations,
       path: error.path,
-      code: error.extensions?.code || 'INTERNAL_SERVER_ERROR',
+      stack: error.extensions?.exception?.stacktrace,
+    });
+
+    return {
+      message: error.message,
+      locations: error.locations,
+      path: error.path,
+      extensions: {
+        code: error.extensions?.code || 'INTERNAL_SERVER_ERROR',
+        stacktrace: process.env.NODE_ENV !== 'production' ? error.extensions?.exception?.stacktrace : undefined,
+      },
     };
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('🛑 GraphQL Error:', {
-        ...formattedError,
-        stack: error.extensions?.exception?.stacktrace,
-      });
-    }
-
-    return formattedError;
   },
 });
 
 // Start Apollo Server
 await server.start();
 
-// Middleware with Authentication Context
+// Update middleware configuration
 app.use(
   '/graphql',
+  cors(corsOptions),
   express.json(),
   expressMiddleware(server, {
     context: async ({ req }) => {
       try {
         const token = req.headers.authorization || req.cookies?.authToken || '';
+        console.log('Incoming request headers:', req.headers); // Debug log
+        console.log('Token received:', token); // Debug log
+        
         const user = await getUser(token);
+        console.log('User context:', user); // Debug log
 
         return {
           prisma,
