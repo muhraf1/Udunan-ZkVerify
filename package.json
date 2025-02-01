@@ -1,0 +1,8 @@
+{
+  "name": "hardhat-project",
+  "dependencies": {
+    "@account-kit/infra": "^4.7.0",
+    "@account-kit/react": "^4.7.0",
+    "@tanstack/react-query": "^5.62.10"
+  }
+}

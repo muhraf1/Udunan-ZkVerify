@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CategoryStatus {
+  Emergency
+  Healthcare
+  Education
+  Animal
+  Others
+}
+
+model Content {
+  id              String         @id @default(uuid())
+  title           String
+  isVerified      Boolean        @default(false)
+  currentAmount   Decimal        @db.Decimal(20,8)
+  targetAmount    Decimal        @db.Decimal(20,8)
+  donationCount   Int            @default(0)     
+  category        CategoryStatus @default(Emergency)
+  location        String?
+  address         String?         // Smart contract address
+  
+  // Relations
+  donations       Donate[]
+  withdrawals     Withdraw[]
+  fundraises      Fundraise[]
+  
+  // Organization
+  organizationName    String?
+  organizationNameId  String
+  organization        User        @relation("OrganizationContents", fields: [organizationNameId], references: [id])
+  
+  // Content details
+  imageSrc        String?
+  description     String?
+  startDate       DateTime?
+  endDate         DateTime?
+  
+  // Creator
+  userId          String
+  user            User          @relation("UserContents", fields: [userId], references: [id])
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([category])
+}
+
+model Fundraise {
+  id            String     @id @default(uuid())
+  title         String
+  description   String
+  fundimg       String
+  // Relations
+  authorId      String
+  author        User       @relation(fields: [authorId], references: [id])
+  contentId     String
+  content       Content    @relation(fields: [contentId], references: [id])
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([authorId])
+  @@index([contentId])
+}
+
+model Donate {
+  id          String     @id @default(uuid())
+  tx_hash     String     @unique
+  amount      Decimal    @db.Decimal(20,8)
+  msg         String?
+  
+  // Relations
+  donorId     String
+  donor       User       @relation(fields: [donorId], references: [id])
+  contentId   String
+  content     Content    @relation(fields: [contentId], references: [id])
+  
+  // Transaction details
+  fromAddress String
+  toAddress   String
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([tx_hash])
+  @@index([donorId])
+  @@index([contentId])
+}
+
+model Withdraw {
+  id          String     @id @default(uuid())
+  tx_hash     String     @unique
+  amount      Decimal    @db.Decimal(20,8)
+  title       String
+  description String
+  
+  // Relations
+  contentId   String
+  content     Content    @relation(fields: [contentId], references: [id])
+  
+  // Transaction details
+  fromAddress String
+  toAddress   String
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([tx_hash])
+  @@index([contentId])
+}
+
+
+model User {
+  id                    String      @id @default(uuid())
+  email                 String      @unique
+  userId                String?
+  orgId                 String?
+  address               String?
+  type                  String? 
+  name                  String?
+  bio                   String?
+  userimg               String?
+  X                     String?
+  instagram             String?
+  linkedin              String?
+  telegram              String?
+  youtube               String?
+  website               String? 
+
+  // Relations
+  fundraises            Fundraise[]
+  donations             Donate[]
+  createdContents       Content[]   @relation("UserContents")
+  organizationContents  Content[]   @relation("OrganizationContents")
+  
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@index([email])
+  @@index([address])
+}
