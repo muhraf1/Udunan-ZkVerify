@@ -1,1 +1,2 @@
-
+** U-Dunan ZkvVerify **
+Transparency and sovereignty have always been key issues for Charity Foundations. With the use of the smart aid account ERC-4337, onboarding users via email and constructing smart accounts has made donating, opening campaigns, and starting fundraisers easier than ever. The addition of an anonymous feature using Tornado Cash, along with verification via zkVerify, enables contributions to the Web3 realm without compromising privacy.
