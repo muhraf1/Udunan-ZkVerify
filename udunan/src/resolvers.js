@@ -451,9 +451,6 @@ const resolvers = {
   },
 
 
- 
-  
-
     login: async (_, { email }) => {
       try {
         const user = await prisma.user.findUnique({
@@ -469,6 +466,36 @@ const resolvers = {
             userid: user.id,
             email: user.email
            
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: '7h' }
+        );
+
+        return {
+          token,
+          user
+        };
+      } catch (error) {
+        throw new Error(`Login failed: ${error.message}`);
+      }
+    },
+    
+    loginByAddress: async (_, { address }) => {
+      try {
+        const user = await prisma.user.findFirst({
+          where: { address }
+        });
+
+        if (!user) {
+          throw new Error('User not found');
+        }
+
+        const token = jwt.sign(
+          { 
+            userid: user.id,
+            email: user.email,
+            address: user.address,
+            type: user.type
           },
           process.env.JWT_SECRET,
           { expiresIn: '7h' }
@@ -514,6 +541,42 @@ const resolvers = {
     
         const token = jwt.sign(
           { email: user.email, userid: user.id, orgId: user.orgId, address: user.address, type: user.type, Name: newName },
+          process.env.JWT_SECRET,
+          { expiresIn: '7h' }
+        );
+    
+        return { token, user };
+      } catch (error) {
+        console.error('Registration error:', error);
+        throw new Error(error.message || 'Failed to register');
+      }
+    },
+    
+    registerByAddress: async (_, { address }) => {
+      try {
+        const existingUser = await prisma.user.findFirst({
+          where: { address }
+        });
+    
+        if (existingUser) {
+          throw new Error('Address already registered');
+        }
+    
+        // Generate default values if fields are not provided
+        const newName = address || '';
+        const placeholder = 'kosong';
+    
+        const user = await prisma.user.create({
+          data: { 
+            address,
+          }
+        });
+    
+        const token = jwt.sign(
+          { 
+            userid: user.id,
+            address: user.address,
+          },
           process.env.JWT_SECRET,
           { expiresIn: '7h' }
         );

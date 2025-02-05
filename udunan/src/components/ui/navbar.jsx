@@ -7,6 +7,8 @@ import { useAuth } from './AuthContext';
 import { AuthCard } from "@account-kit/react";
 import { toast } from 'sonner';
 import { gql, useMutation,useQuery } from '@apollo/client';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+
 
 import {
   useAuthModal,
@@ -68,7 +70,7 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Get auth states from context
-  const { isLoggedIn, login, logout, user, signerStatus,token } = useAuth();
+  const { isLoggedIn, login, logout, user,token } = useAuth();
 
   const handleLoginSuccess = async () => {
     try {
@@ -123,7 +125,6 @@ export function Navbar() {
   // end of auth 
   // check
   console.log("check user",user);
-  console.log("check signer",signerStatus);
   console.log("check login", isLoggedIn);
 
 
@@ -141,7 +142,7 @@ export function Navbar() {
   }, [user]);
 
 
-  console.log("User email before login mutation navbar.jsx:", user?.email);
+  console.log("User address login mutation navbar.jsx:", user?.address);
 
 
   // Remove this duplicate query declaration
@@ -214,11 +215,7 @@ export function Navbar() {
   if (profileError) {
     console.warn("Profile data could not be loaded.");
   }
-  // Remove the reassignment of user
-  // if (profileData && profileData.user) {
-  //   user = profileData.user; // This line was causing the error
-  // }
-
+   
   return (
     <nav className='sticky top-0 z-50'>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -275,9 +272,7 @@ export function Navbar() {
               </button>
               <span><Bell className="h-6 w-6 text-white stroke-4" /></span>
 
-              {signerStatus.isInitializing ? (
-                <div className="text-white">Loading...</div>
-              ) : isLoggedIn && user ? (
+              { isLoggedIn && user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Avatar className="h-10 w-10 cursor-pointer">
@@ -373,6 +368,7 @@ export function Navbar() {
        <Dialog open={isDialogOpenLogin} onOpenChange={setIsDialogOpenLogin}>
         <DialogContent className="bg-white rounded-lg p-6">
       
+              
             <AuthCard
               onSuccess={handleLoginSuccess}
               onError={(error) => console.error("AuthCard Error:", error)}

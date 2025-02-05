@@ -1,19 +1,34 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
-import { useUser, useSignerStatus, useLogout } from "@account-kit/react";
+import { useUser, useLogout } from "@account-kit/react";
 import { toast } from 'sonner';
 import { gql, useMutation } from '@apollo/client';
 
-const REGISTER_MUTATION = gql`
-  mutation Register($email: String!, $userId: String, $orgId: String, $type: String, $address: String ) {
-    register(email: $email, userId: $userId, orgId: $orgId, type: $type, address: $address) {
+// const REGISTER_MUTATION = gql`
+//   mutation Register($email: String!, $userId: String, $orgId: String, $type: String, $address: String ) {
+//     register(email: $email, userId: $userId, orgId: $orgId, type: $type, address: $address) {
+//       token
+//       user {
+//         id
+//         email
+//         userId
+//         orgId
+//         address
+//         type
+//       }
+//     }
+//   }
+// `;
+
+
+const REGISTER_MUTATION_ADDRES = gql`
+  mutation registerByAddress($address: String! ) {
+    registerByAddress(address: $address) {
       token
       user {
         id
-        email
         userId
-        orgId
         address
         type
       }
@@ -21,21 +36,39 @@ const REGISTER_MUTATION = gql`
   }
 `;
 
-const LOGIN_MUTATION = gql`
-  mutation Login($email: String!) {
-    login(email: $email) {
+// const LOGIN_MUTATION = gql`
+//   mutation Login($email: String!) {
+//     login(email: $email) {
+//       token
+//       user {
+//         id
+//         email
+//         userId
+//         orgId
+//         address
+//         type
+//       }
+//     }
+//   }
+// `;
+
+
+//login via address
+
+const LOGIN_BY_ADDRESS_MUTATION = gql`
+  mutation LoginByAddress($address: String!) {
+    loginByAddress(address: $address) {
       token
       user {
         id
         email
-        userId
-        orgId
         address
         type
       }
     }
   }
 `;
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -45,9 +78,9 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   
   const user = useUser();
-  const signerStatus = useSignerStatus();
-  const [registerMutation] = useMutation(REGISTER_MUTATION);
-  const [loginMutation] = useMutation(LOGIN_MUTATION);
+ 
+  const [loginByAddressMutation] = useMutation(LOGIN_BY_ADDRESS_MUTATION);
+  const [registerMutation] = useMutation(REGISTER_MUTATION_ADDRES);  // Add this line
 
   const { logout: _logout } = useLogout({
     onSuccess: () => {
@@ -62,18 +95,21 @@ export const AuthProvider = ({ children }) => {
   });
 
   // Validate Authentication State
-  useEffect(() => { 
-    const validateAuth = async () => {
-      const storedToken = Cookies.get('authToken');
+  useEffect(() => {
+    const storedToken = Cookies.get('authToken');
       try {
-        if (user?.userId && signerStatus.isConnected && !signerStatus.isInitializing) {
+        if (user?.userId ) {
+          console.log("user is connected",user?.userId);
           if (storedToken) {
             setToken(storedToken);
             setIsLoggedIn(true);
-          } else if (user.email) {
-            // If user has email but no token, attempt login
-            await login();
+          } else {
+            // If no token but user is connected, attempt to login
+            login();
           }
+        } else {
+          setIsLoggedIn(false);
+          setToken(null);
         }
       } catch (error) {
         console.error('Auth validation error:', error);
@@ -82,67 +118,98 @@ export const AuthProvider = ({ children }) => {
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [user]);
 
-    validateAuth();
-  }, [user, signerStatus.isConnected, signerStatus.isInitializing]);
 
-  const login = async () => {
-    try {
-      if (!user?.email) {
-        throw new Error("User email is required");
-      }
+    
+    // const login = async () => {
+    //   try {
+    //     if (!user?.email) {
+    //       throw new Error("User email is required");
+    //     }
+    
+    //     const { data } = await loginMutation({
+    //       variables: { email: user.email }
+    //     });
+    
+    //     if (data?.login?.token) {
+    //       Cookies.set('authToken', data.login.token);
+    //       setToken(data.login.token);
+    //       setIsLoggedIn(true);
+    //       toast.success('Login successful!');
+    //       return;
+    //     }
+    //   } catch (loginError) {
+    //     console.error('Login failed:', loginError.message);
+    
+    //     if (loginError.message.includes('User not found')) {
+    //       // Attempt registration if the user is not found
+    //       const { data: registerData } = await registerMutation({
+    //         variables: { email: user.email, userId : user.userId, address : user.address, type: user.type, orgId: user.orgId}
+    //       });
+    
+    //       if (registerData?.register?.token) {
+    //         Cookies.set('authToken', registerData.register.token);
+    //         setToken(registerData.register.token);
+    //         setIsLoggedIn(true);
+    //         toast.success('Registration successful!');
+    //         return;
+    //       } else {
+    //         throw new Error('Registration failed.');
+    //       }
+    //     } else {
+    //       throw loginError;
+    //     }
+    //   }
+    // };
 
-      console.log("Attempting login for:", user.email);
-      
+    //login via address
+
+    const login = async (address) => {
       try {
-        const { data } = await loginMutation({
-          variables: { email: user.email },
-          onError: (error) => {
-            console.error("Login Mutation Error Details:", error);
-          }
+        const { data } = await loginByAddressMutation({
+          variables: { address: user.address }
         });
-
-        if (data?.login?.token) {
-          Cookies.set('authToken', data.login.token, { expires: 7 });
-          setToken(data.login.token);
+    
+        if (data?.loginByAddress?.token) {
+          Cookies.set('authToken', data.loginByAddress.token);
+          setToken(data.loginByAddress.token);
           setIsLoggedIn(true);
           toast.success('Login successful!');
-          return;
         }
-      } catch (loginError) {
-        console.log("Login failed, attempting registration:", loginError.message);
+      } catch (error) {
+        console.error('Login failed:', error.message);
         
-        const { data: registerData } = await registerMutation({
-          variables: { 
-            email: user.email, 
-            userId: user.userId, 
-            address: user.address, 
-            type: user.type, 
-            orgId: user.orgId
-          },
-          onError: (error) => {
-            console.error("Registration Mutation Error Details:", error);
+        // If user not found, attempt registration
+        if (error.message.includes('User not found')) {
+          try {
+            const { data: registerData } = await registerMutation({
+              variables: {
+                // email: user.email || '',
+                // userId: user.userId || '',
+                // orgId: user.orgId || '',
+                // type: user.type || '',
+                address: user.address
+              }
+            });
+    
+            if (registerData?.register?.token) {
+              Cookies.set('authToken', registerData.register.token);
+              setToken(registerData.register.token);
+              setIsLoggedIn(true);
+              toast.success('Registration successful!');
+            } else {
+              throw new Error('Registration failed');
+            }
+          } catch (registerError) {
+            console.error('Registration failed:', registerError);
+            toast.error('Failed to register. Please try again.');
           }
-        });
-
-        if (registerData?.register?.token) {
-          Cookies.set('authToken', registerData.register.token, { expires: 7 });
-          setToken(registerData.register.token);
-          setIsLoggedIn(true);
-          toast.success('Registration successful!');
-          return;
         } else {
-          console.error("No token received from registration");
-          throw new Error('Registration failed - No token received');
+          toast.error('Login failed. Please try again.');
         }
       }
-    } catch (error) {
-      console.error('Authentication failed:', error);
-      toast.error(error.message || 'Authentication failed. Please try again.');
-      throw error;
-    }
-  };
+    };
     
   
 
@@ -169,7 +236,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     user,
     token,
-    signerStatus
+
   };
 
   return (

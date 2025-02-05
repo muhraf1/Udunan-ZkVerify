@@ -6,7 +6,7 @@ import App from './App.jsx';
 
 // Initialize Apollo Client
 const client = new ApolloClient({
-  uri: import.meta.env.VITE_GRAPHQL_URI || 'http://localhost:4000', // Use environment variable or fallback to localhost
+  uri: import.meta.env.VITE_GRAPHQL_URI || 'http://localhost:4000/graphql', // Use environment variable or fallback to localhost
   cache: new InMemoryCache(),
  
 });

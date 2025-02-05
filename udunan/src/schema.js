@@ -80,7 +80,7 @@ type Withdraw {
 
 type User {
   id: ID!
-  email: String!
+  email: String
   userId: String
   orgId: String
   address: String
@@ -123,10 +123,8 @@ type Query {
   donations(take: Int, skip: Int): [Donate!]!
   donationsByContent(contentId: ID!): [Donate!]!
   donationsByUser(userId: ID!): [Donate!]!
-
   withdrawals(take: Int, skip: Int): [Withdraw!]!
   withdrawalsByContent(contentId: ID!): [Withdraw!]!
-
   userprofile(id: ID!): User
   usermanage: User
   me: User
@@ -135,6 +133,8 @@ type Query {
 type Mutation {
   register(email: String!, userId: String, orgId: String, type: String, address: String): AuthPayload!
   login(email: String!): AuthPayload!
+  loginByAddress(address: String!): AuthPayload!
+   registerByAddress(address: String!): AuthPayload!
 
   createContent(
     title: String!
@@ -215,6 +215,8 @@ type Mutation {
     youtube: String
     website: String
   ): User!
+
+  
 
  
 }

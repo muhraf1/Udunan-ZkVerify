@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
+//rainbow wallets
+
+
 // UI Components
 import { EmblaCarousel } from "./components/ui/EmblaCarousel";
 import Layout from "./components/ui/Layout";
@@ -30,7 +33,7 @@ import { HomeFeed } from "./components/ui/home_feed";
 
 // Account Kit
 import { AlchemyAccountProvider } from "@account-kit/react";
-import { config, queryClient } from "@/config";
+import { config, queryClient } from "./config";
 
 // Query Client
 import { QueryClientProvider } from "@tanstack/react-query";

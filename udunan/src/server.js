@@ -32,19 +32,18 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Update CORS Configuration
 const corsOptions = {
-  origin: [FRONTEND_URL],
+  origin: true, // Allow all origins in development
   credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Apollo-Require-Preflight',
-    'x-apollo-operation-name',
-    'apollo-require-preflight',
-  ],
-  exposedHeaders: ['*', 'Authorization'],
-  maxAge: 86400,
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
+
+// Apply CORS to the entire app
+app.use(cors(corsOptions));
+
+// Basic middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /* ---------------------------------------------
 ✅ TOKEN VERIFICATION
@@ -53,6 +52,9 @@ const verifyToken = (token) => {
   try {
     if (!token) return null;
     const cleanToken = token.replace('Bearer ', '');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔑 Token received:', cleanToken);
+    }
     return jwt.verify(cleanToken, JWT_SECRET);
   } catch (error) {
     console.error('❌ Token verification failed:', error.message);
@@ -100,64 +102,35 @@ const httpServer = http.createServer(app);
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  plugins: [
-    ApolloServerPluginDrainHttpServer({ httpServer }),
-    process.env.NODE_ENV === 'production'
-      ? ApolloServerPluginLandingPageLocalDefault({ embed: false })
-      : ApolloServerPluginLandingPageLocalDefault({ embed: true }),
-  ],
-  includeStacktraceInErrorResponses: process.env.NODE_ENV !== 'production',
+  plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+  introspection: true, // Enable introspection for development
   formatError: (error) => {
-    console.error('GraphQL Error:', {
-      message: error.message,
-      locations: error.locations,
-      path: error.path,
-      stack: error.extensions?.exception?.stacktrace,
-    });
-
+    console.error('GraphQL Error:', error);
     return {
       message: error.message,
       locations: error.locations,
       path: error.path,
-      extensions: {
-        code: error.extensions?.code || 'INTERNAL_SERVER_ERROR',
-        stacktrace: process.env.NODE_ENV !== 'production' ? error.extensions?.exception?.stacktrace : undefined,
-      },
+      extensions: error.extensions,
     };
   },
 });
 
-// Start Apollo Server
 await server.start();
 
-// Update middleware configuration
+// GraphQL endpoint middleware
 app.use(
   '/graphql',
-  cors(corsOptions),
   express.json(),
   expressMiddleware(server, {
     context: async ({ req }) => {
-      try {
-        const token = req.headers.authorization || req.cookies?.authToken || '';
-        console.log('Incoming request headers:', req.headers); // Debug log
-        console.log('Token received:', token); // Debug log
-        
-        const user = await getUser(token);
-        console.log('User context:', user); // Debug log
-
-        return {
-          prisma,
-          user,
-          token: token.replace('Bearer ', ''),
-        };
-      } catch (error) {
-        console.error('❌ Context creation error:', error.message);
-        return {
-          prisma,
-          user: null,
-          token: null,
-        };
-      }
+      const token = req.headers.authorization || '';
+      const user = await getUser(token);
+      
+      return {
+        prisma,
+        user,
+        token: token.replace('Bearer ', ''),
+      };
     },
   })
 );
