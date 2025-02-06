@@ -249,8 +249,6 @@ const resolvers = {
         throw new Error('End date must be after start date');
       }
     
-     
-    
       // Fetch current user for organization name
       const currentUser = await prisma.user.findUnique({
         where: { id: user.id },
@@ -260,42 +258,46 @@ const resolvers = {
       if (!currentUser) {
         throw new Error('User not found in the database');
       }
-       // Calculate days left
-       const today = new Date();
-       const endDateTime = parsedEndDate.getTime();
-       const todayTime = today.getTime();
-       const dayLeft = Math.max(
-         0,
-         Math.ceil((endDateTime - todayTime) / (1000 * 60 * 60 * 24))
-       );
+
+      // Calculate days left
+      const today = new Date();
+      const endDateTime = parsedEndDate.getTime();
+      const todayTime = today.getTime();
+      const dayLeft = Math.max(0, Math.ceil((endDateTime - todayTime) / (1000 * 60 * 60 * 24)));
     
-      return prisma.content.create({
-        data: {
-          title: args.title,
-          category: args.category,
-          location: args.location,
-          address: args.address,
-          imageSrc: args.imageSrc,
-          isVerified: args.isVerified,
-          description: args.description,
-          organizationNameId:args.organizationNameId,
-          organizationName: currentUser.name,
-          startDate: parsedStartDate,
-          endDate: parsedEndDate,
-          targetAmount: parsedTargetAmount,
-          currentAmount: 0,
-          donationCount: 0,
-          dayLeft: dayLeft,
-          userId: currentUser.id,
-        },
-        include: {
-          user: true,
-          organization: true,
-          donations: true,
-          withdrawals: true,
-          fundraises: true
-        }
-      });
+      const data = {
+        title: args.title,
+        category: args.category,
+        location: args.location || '',
+        address: args.address,
+        imageSrc: args.imageSrc,
+        isVerified: args.isVerified || false,
+        description: args.description,
+        organizationNameId: currentUser.id,
+        organizationName: currentUser.name,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+        targetAmount: parsedTargetAmount,
+        currentAmount: 0,
+        donationCount: 0,
+        userId: currentUser.id
+      };
+
+      try {
+        return await prisma.content.create({
+          data,
+          include: {
+            user: true,
+            organization: true,
+            donations: true,
+            withdrawals: true,
+            fundraises: true
+          }
+        });
+      } catch (error) {
+        console.error('Content creation error:', error);
+        throw new Error(`Failed to create content: ${error.message}`);
+      }
     },
 
     updateUser: async (_, { id, name, ...args }, { prisma }) => {
@@ -569,6 +571,9 @@ const resolvers = {
         const user = await prisma.user.create({
           data: { 
             address,
+            name: newName,
+            orgId: newName,
+            userId: newName,
           }
         });
     

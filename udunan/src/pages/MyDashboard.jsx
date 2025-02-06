@@ -1096,7 +1096,7 @@ const MyDashboard = () => {
 
     <div className="min-h-screen text-left text-white px-14 py-8 pt-10 mx-auto">
 
-      <h1 className="text-3xl font-bold mb-4">{userName}'s Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-4 turn"> {userName?.slice(0, 12)}'s Dashboard</h1>
 
       <div className="relative flex justify-start pr-8 text-left pt-4 bt-4">
         {sections.map((section, index) => (

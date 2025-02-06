@@ -149,6 +149,7 @@ type Mutation {
     startDate: String!
     endDate: String!
     targetAmount: Float!
+    dayLeft: Int
   ): Content!
 
   updateContent(

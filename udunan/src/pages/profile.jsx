@@ -277,7 +277,6 @@ const MyProfile = () => {
         );
     };
 
-   
 
 
     //fetch user contents
@@ -438,8 +437,6 @@ const MyProfile = () => {
 
 
 
-
-
     if (!userprof) {
         return <div className="text-white">Campaign not found</div>;
     }
@@ -498,8 +495,6 @@ const MyProfile = () => {
     const renderSectionContent = () => {
         const user = DUMMY_USER;
 
-
-    
         // the start of combined feed for overview section
         const CombinedFeed = ({ contentData, fundraiseData, profileData }) => {
             console.log("Received contentData:", contentData); // Should now be an array of campaigns
@@ -849,7 +844,7 @@ const MyProfile = () => {
                             </div>
                             {/* Right side profile details */}
                             <div className='flex flex-col justify-start ml-4'>
-                                <span className='text-4xl font-bold text-white'>{userprof.name}</span>
+                                <span className='text-4xl font-bold text-white'>{userprof?.name.slice(0, 12)}</span>
                                 <span className='text-white/70'>{userprof.bio}</span>
                                 <div className='flex flex-row items-center gap-2'>
                                     <Calendar className='w-4 h-4' />

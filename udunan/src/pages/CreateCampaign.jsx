@@ -34,7 +34,6 @@ const GET_CURRENT_USER = gql`
     me {
       id
       name
-      email
     }
   }
 `;
@@ -646,7 +645,7 @@ const CreateCampaign = () => {
                 <button
                     className="bg-white text-black mx-20 px-10 mt-8"
                     onClick={handleSubmit}
-                    disabled={createLoading || !userData?.me?.email}
+                    disabled={createLoading || !userData?.me?.id}
                 >
                     {createLoading ? 'Creating Campaign...' : 'Create Campaign'}
                 </button>
