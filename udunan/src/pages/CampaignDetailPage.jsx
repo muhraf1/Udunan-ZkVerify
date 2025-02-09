@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, MapPin, X, ChevronsRight, Link, ArrowUpRight,
   Calendar, Instagram, Globe, Twitter, Dot,  Github,
  Youtube,
- Send,    Linkedin
+ Send,    Linkedin,Copy
   } from "lucide-react";
   import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress";
@@ -29,6 +29,7 @@ const GET_CONTENTS = gql`
       id
       title
       isVerified
+      address
       currentAmount
       targetAmount
       donationCount
@@ -103,6 +104,7 @@ const SOCIAL_ICONS = {
 const CampaignDetailPage = () => {
   const { token } = useAuth(); // Destructure the token from the AuthContext
   const navigate = useNavigate();
+  
 
   const SocialMediaIcons = ({ socialLinks }) => {
     // Early return if no social links provided
@@ -231,6 +233,19 @@ const CampaignDetailPage = () => {
   const campaignData = content.find((item) =>
     createSlug(item.id) === id || item.id == id
   );
+
+  const copyToClipboard = () => {
+  
+    const url = `${campaignData.address}`; // Append selectedDonation.id as suffix
+    navigator.clipboard.writeText(url)
+        .then(() => {
+            alert("Link copied to clipboard!"); // Notify the user
+        })
+        .catch((err) => {
+            console.error("Failed to copy: ", err);
+            alert("Failed to copy the link. Please try again.");
+        });
+};
 
 
 
@@ -862,7 +877,8 @@ const CampaignDetailPage = () => {
          {/* manage button */}
          
         <div className="text-2xl font-bold mb-4">{campaignData.title}</div>
-
+        <div className="text-sm font-light ">{campaignData.address} <button className='bg-[#173C4F] rounded-2xl p-2 ' onClick={copyToClipboard}><Copy className='w-4 h-4' /></button></div>
+      
         <div className="text-white font-semibold text-md  items-center   justify-start gap-2 inline-flex ">
 
           <Calendar className="text-[#BAC1C5] w-10 h-10 border-[#5C7683]/10 rounded-md p-2" style={{ border: "1px solid rgba(255, 255, 255, 0.1)", }} />

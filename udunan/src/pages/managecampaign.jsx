@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { ethers } from 'ethers';
 import { gql, useQuery, useMutation } from '@apollo/client';
 import { createSlug } from '@/lib/stringutils';
 import { Pencil, Heart, MapPin, X, ChevronsRight, Link, ArrowUpRight, CalendarDays, Instagram, Globe, Twitter, TrendingUp } from "lucide-react";
@@ -21,6 +22,12 @@ import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Placeholder from '@tiptap/extension-placeholder';
 
+
+//auth 
+
+// Add useAuth import at the top
+import { useAuth } from '@/components/ui/AuthContext';
+
 import {
     Sheet,
     SheetClose,
@@ -31,6 +38,9 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet"
+
+//connect smart contract
+import { withdrawFromCampaign } from '../lib/withdraw';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -112,12 +122,41 @@ const UPDATE_CONTENT = gql`
         }
     `;
 
+const CREATE_WITHDRAWAL = gql`
+  mutation createWithdraw(
+    $contentId: String!
+    $amount: Float!
+    $title: String!
+    $description: String!
+    $tx_hash: String!
+    $fromAddress: String!
+    $toAddress: String!
+  ) {
+    createWithdraw(
+      contentId: $contentId
+      amount: $amount
+      title: $title
+      description: $description
+      tx_hash: $tx_hash
+      fromAddress: $fromAddress
+      toAddress: $toAddress
+    ) {
+      id
+      amount
+      description
+      title
+      tx_hash
+    }
+  }
+`;
+
 
 const GET_CONTENTS = gql`
     query GetContents {
         contents {
         id
         title
+        address
         targetAmount
         category
         location
@@ -133,6 +172,7 @@ const GET_CONTENTS = gql`
 const ManageCampaign = () => {
     const { id } = useParams();
     const sectionRefs = useRef([]);
+    const { isLoggedIn, token } = useAuth();
     const [startDateOpen, setStartDateOpen] = useState(false);
     const [endDateOpen, setEndDateOpen] = useState(false);
     const [showSheet, setShowSheet] = useState(false); // Define the state for showing the sheet
@@ -150,6 +190,83 @@ const ManageCampaign = () => {
     const [initialData, setInitialData] = useState({}); // Added initialData state
 
 
+    // Add these state variables inside the ManageCampaign component
+    // const [withdrawalAmount, setWithdrawalAmount] = useState('');
+    const [withdrawalPurpose, setWithdrawalPurpose] = useState('');
+    const [withdrawalDescription, setWithdrawalDescription] = useState('');
+    const [withdrawalLoading, setWithdrawalLoading] = useState(false);
+
+
+
+
+    // Add the mutation hook
+    const [createWithdrawal] = useMutation(CREATE_WITHDRAWAL, {
+        context: {
+            headers: {
+                Authorization: token ? `Bearer ${token}` : "",
+            },
+        },
+    });
+
+    // Add this function inside the ManageCampaign component
+    const handleWithdraw = async () => {
+        try {
+            // Check authentication first
+            if (!isLoggedIn || !token) {
+                toast.error("Please log in to withdraw funds");
+                return;
+            }
+
+            setWithdrawalLoading(true);
+
+         
+
+            if (!withdrawalPurpose) {
+                throw new Error('Please enter a withdrawal purpose');
+            }
+
+            if (!campaignData?.address) {
+                throw new Error('Campaign address not found');
+            }
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            const signer = await provider.getSigner();
+            const fromAddress = await signer.getAddress();
+
+            // Process blockchain transaction
+            const { hash, amount } = await withdrawFromCampaign(campaignData.address);
+
+            // Create database record
+            await createWithdrawal({
+                variables: {
+                  contentId: campaignData.id,
+                  amount: parseFloat(amount), // Use the amount from the withdrawal event
+                  title: withdrawalPurpose,
+                  description: withdrawalDescription || "No description provided",
+                  tx_hash: hash,
+                  fromAddress: campaignData.address,
+                  toAddress: fromAddress
+                }
+              });
+
+            toast.success('Withdrawal successful!');
+
+            setWithdrawalPurpose('');
+            setWithdrawalDescription('');
+            setShowSheet(false);
+
+        } catch (err) {
+            console.error('Withdrawal error:', err);
+            if (err.code === 4001) {
+                toast.error('Transaction cancelled');
+            } else {
+                toast.error(err.message || 'Failed to process withdrawal');
+            }
+        } finally {
+            setWithdrawalLoading(false);
+        }
+    };
 
 
     // Add update mutation
@@ -231,40 +348,40 @@ const ManageCampaign = () => {
     // Modified to handle timestamps consistently
     const formatDate = (timestamp) => {
         if (!timestamp) return 'Select Date';
-        
+
         // Convert to number if it's a string
         const dateNum = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
         const date = new Date(dateNum);
-        
-        return !isNaN(date.getTime())
-          ? date.toLocaleDateString("en-US", {
-              weekday: 'short',
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            })
-          : 'Invalid Date';
-      };
 
-// Modified to convert Date objects to timestamps
-const handleDateSelect = (field, date) => {
-    if (date instanceof Date && !isNaN(date.getTime())) {
-      const timestamp = date.getTime();
-      console.log(`Setting ${field} to timestamp:`, timestamp);
-      
-      setFormData(prev => ({
-        ...prev,
-        [field]: timestamp
-      }));
-    }
-  };
-// Convert timestamp to Date object for Calendar
-const getDateFromTimestamp = (timestamp) => {
-    if (!timestamp) return undefined;
-    const dateNum = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
-    const date = new Date(dateNum);
-    return !isNaN(date.getTime()) ? date : undefined;
-  };
+        return !isNaN(date.getTime())
+            ? date.toLocaleDateString("en-US", {
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+            })
+            : 'Invalid Date';
+    };
+
+    // Modified to convert Date objects to timestamps
+    const handleDateSelect = (field, date) => {
+        if (date instanceof Date && !isNaN(date.getTime())) {
+            const timestamp = date.getTime();
+            console.log(`Setting ${field} to timestamp:`, timestamp);
+
+            setFormData(prev => ({
+                ...prev,
+                [field]: timestamp
+            }));
+        }
+    };
+    // Convert timestamp to Date object for Calendar
+    const getDateFromTimestamp = (timestamp) => {
+        if (!timestamp) return undefined;
+        const dateNum = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
+        const date = new Date(dateNum);
+        return !isNaN(date.getTime()) ? date : undefined;
+    };
 
 
     const handleInputChange = (e) => {
@@ -287,128 +404,128 @@ const getDateFromTimestamp = (timestamp) => {
     };
 
 
-     // Updated to handle timestamps properly
-  const parseDate = (timestamp) => {
-    if (!timestamp) return undefined;
-    
-    // Convert string timestamp to number if needed
-    const parsed = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
-    const date = new Date(parsed);
-    return !isNaN(date.getTime()) ? date : undefined;
-  };
+    // Updated to handle timestamps properly
+    const parseDate = (timestamp) => {
+        if (!timestamp) return undefined;
+
+        // Convert string timestamp to number if needed
+        const parsed = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
+        const date = new Date(parsed);
+        return !isNaN(date.getTime()) ? date : undefined;
+    };
 
 
-//   descripton
+    //   descripton
 
- // Initialize Tiptap Editor
- const editor = useEditor({
-    extensions: [
-        StarterKit,
-        Bold,
-        Italic,
-        Heading.configure({ levels: [1, 2] }),
-        TipTapImage.extend({
-            addOptions() {
-                return {
-                    ...this.parent?.(),
-                    HTMLAttributes: {
-                        style: 'width: 300px; height: 200px; border-radius:5px;',
-                    },
-                };
-            },
-        }),
-        Placeholder.configure({
-            placeholder: 'Add your description here...',
-        }),
-    ],
-    content: formData.description || '', // Initialize content
-    onUpdate: debounce(({ editor }) => {
-        setFormData((prev) => ({
-            ...prev,
-            description: editor.getHTML(),
-        }));
-    }, 300), // Debounced to reduce excessive updates
-});
-
-
-const addImage = () => {
-    const url = prompt('Enter the image URL:');
-    if (url) {
-        editor.chain().focus().setImage({ src: url }).run();
-    }
-};
-
-useEffect(() => {
-    if (editor && formData.description !== editor.getHTML()) {
-        editor.commands.setContent(formData.description || '');
-    }
-}, [editor, formData.description]);
+    // Initialize Tiptap Editor
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Bold,
+            Italic,
+            Heading.configure({ levels: [1, 2] }),
+            TipTapImage.extend({
+                addOptions() {
+                    return {
+                        ...this.parent?.(),
+                        HTMLAttributes: {
+                            style: 'width: 300px; height: 200px; border-radius:5px;',
+                        },
+                    };
+                },
+            }),
+            Placeholder.configure({
+                placeholder: 'Add your description here...',
+            }),
+        ],
+        content: formData.description || '', // Initialize content
+        onUpdate: debounce(({ editor }) => {
+            setFormData((prev) => ({
+                ...prev,
+                description: editor.getHTML(),
+            }));
+        }, 300), // Debounced to reduce excessive updates
+    });
 
 
-  console.log(" before pick Start Date:", formData.startDate);
-  console.log(" before pick End Date:", formData.endDate);
+    const addImage = () => {
+        const url = prompt('Enter the image URL:');
+        if (url) {
+            editor.chain().focus().setImage({ src: url }).run();
+        }
+    };
 
-  console.log('Editor Content:', editor?.getHTML());
+    useEffect(() => {
+        if (editor && formData.description !== editor.getHTML()) {
+            editor.commands.setContent(formData.description || '');
+        }
+    }, [editor, formData.description]);
 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-        // Debug logs to check the incoming values
-        console.log('Form startDate:', formData.startDate);
-        console.log('Form endDate:', formData.endDate);
-        console.log('Initial startDate:', initialData.startDate);
-        console.log('Initial endDate:', initialData.endDate);
+    console.log(" before pick Start Date:", formData.startDate);
+    console.log(" before pick End Date:", formData.endDate);
 
-        
-        // Helper function to safely convert dates
-        const convertToISOString = (timestamp) => {
-            if (!timestamp) return null;
-            
-            const dateNum = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
-            if (isNaN(dateNum)) {
-                console.error('Invalid timestamp:', timestamp);
-                return null;
-            }
-            
-            const date = new Date(dateNum);
-            if (isNaN(date.getTime())) {
-                console.error('Invalid date:', date);
-                return null;
-            }
-            
-            return date.toISOString();
-        };
+    console.log('Editor Content:', editor?.getHTML());
 
-        const updatedData = {
-            id,
-            title: formData.title || initialData.title,
-            targetAmount: formData.targetAmount
-                ? parseInt(formData.targetAmount)
-                : initialData.targetAmount,
-            category: formData.category || initialData.category,
-            location: formData.location || initialData.location,
-            organizationName: formData.organizationName || initialData.organizationName,
-            description: editor?.getHTML()  || initialData.description,
-            startDate: convertToISOString(formData.startDate) || convertToISOString(initialData.startDate),
-            endDate: convertToISOString(formData.endDate) || convertToISOString(initialData.endDate),
-        };
-        
-        // Log the final data being sent
-        console.log('Final Updated Data:', updatedData);
-        
-        await updateContent({
-            variables: updatedData,
-        });
-        
-        toast.success('Campaign updated successfully!');
-    } catch (error) {
-        console.error('Error updating campaign:', error);
-        // More detailed error message
-        toast.error(`Failed to update campaign: ${error.message}`);
-    }
-};
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        try {
+            // Debug logs to check the incoming values
+            console.log('Form startDate:', formData.startDate);
+            console.log('Form endDate:', formData.endDate);
+            console.log('Initial startDate:', initialData.startDate);
+            console.log('Initial endDate:', initialData.endDate);
+
+
+            // Helper function to safely convert dates
+            const convertToISOString = (timestamp) => {
+                if (!timestamp) return null;
+
+                const dateNum = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
+                if (isNaN(dateNum)) {
+                    console.error('Invalid timestamp:', timestamp);
+                    return null;
+                }
+
+                const date = new Date(dateNum);
+                if (isNaN(date.getTime())) {
+                    console.error('Invalid date:', date);
+                    return null;
+                }
+
+                return date.toISOString();
+            };
+
+            const updatedData = {
+                id,
+                title: formData.title || initialData.title,
+                targetAmount: formData.targetAmount
+                    ? parseInt(formData.targetAmount)
+                    : initialData.targetAmount,
+                category: formData.category || initialData.category,
+                location: formData.location || initialData.location,
+                organizationName: formData.organizationName || initialData.organizationName,
+                description: editor?.getHTML() || initialData.description,
+                startDate: convertToISOString(formData.startDate) || convertToISOString(initialData.startDate),
+                endDate: convertToISOString(formData.endDate) || convertToISOString(initialData.endDate),
+            };
+
+            // Log the final data being sent
+            console.log('Final Updated Data:', updatedData);
+
+            await updateContent({
+                variables: updatedData,
+            });
+
+            toast.success('Campaign updated successfully!');
+        } catch (error) {
+            console.error('Error updating campaign:', error);
+            // More detailed error message
+            toast.error(`Failed to update campaign: ${error.message}`);
+        }
+    };
 
     console.log("Start Date:", formData.startDate);
     console.log("End Date:", formData.endDate);
@@ -857,46 +974,46 @@ useEffect(() => {
                                     {field === 'description' ? (
                                         <div className="space-y-2">
                                             <div className="bg-white/5 flex w-full rounded-lg mt-2 p-4 border border-white/20">
-                                            <div className="flex flex-col text-left w-full overflow-auto">
-                                                {/* Toolbar */}
-                                                <div className="flex gap-2 mb-3 border-b pb-2 border-white/10">
-                                                    <button
-                                                        className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
-                                                        onClick={() => editor?.chain().focus().toggleBold().run()}
-                                                        type="button"
-                                                    >
-                                                        Bold
-                                                    </button>
-                                                    <button
-                                                        className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
-                                                        onClick={() => editor?.chain().focus().toggleItalic().run()}
-                                                        type="button"
-                                                    >
-                                                        Italic
-                                                    </button>
-                                                    <button
-                                                        className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
-                                                        onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-                                                        type="button"
-                                                    >
-                                                        H1
-                                                    </button>
-                                                    <button
-                                                        className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
-                                                        onClick={addImage}
-                                                        type="button"
-                                                    >
-                                                        Add Image
-                                                    </button>
-                                                </div>
-                        
-                                                {/* TipTap Editor */}
-                                                <div className="rounded p-3 border-0 min-h-[200px]">
-                                                {editor && <EditorContent editor={editor} />}
+                                                <div className="flex flex-col text-left w-full overflow-auto">
+                                                    {/* Toolbar */}
+                                                    <div className="flex gap-2 mb-3 border-b pb-2 border-white/10">
+                                                        <button
+                                                            className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
+                                                            onClick={() => editor?.chain().focus().toggleBold().run()}
+                                                            type="button"
+                                                        >
+                                                            Bold
+                                                        </button>
+                                                        <button
+                                                            className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
+                                                            onClick={() => editor?.chain().focus().toggleItalic().run()}
+                                                            type="button"
+                                                        >
+                                                            Italic
+                                                        </button>
+                                                        <button
+                                                            className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
+                                                            onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                                                            type="button"
+                                                        >
+                                                            H1
+                                                        </button>
+                                                        <button
+                                                            className="px-3 py-1 bg-transparent rounded hover:bg-[#5794D1]"
+                                                            onClick={addImage}
+                                                            type="button"
+                                                        >
+                                                            Add Image
+                                                        </button>
+                                                    </div>
+
+                                                    {/* TipTap Editor */}
+                                                    <div className="rounded p-3 border-0 min-h-[200px]">
+                                                        {editor && <EditorContent editor={editor} />}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
                                     ) : (
                                         <input
                                             type={field === 'targetAmount' ? 'number' : 'text'}
@@ -1026,17 +1143,23 @@ useEffect(() => {
                         {/* Body Content */}
                         <div className="flex flex-col px-8">
                             {/* Withdrawal Amount */}
-                            <div className="flex flex-col text-left my-2">
+                            {/* <div className="flex flex-col text-left my-2">
                                 <label htmlFor="withdrawal-amount" className="pl-2 text-lg font-semibold">
                                     Enter Withdrawal Amount
                                 </label>
 
                                 <div className="flex items-center bg-transparent  p-2 rounded-l-lg  justify-between gap-2">
                                     <div className=" flex bg-white/5 items-center   w-full rounded-l-lg p-1 justify-center">
+
                                         <Input
                                             id="withdrawal-amount"
                                             className="text-white border-0 text-right"
                                             placeholder="1,200"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={withdrawalAmount}
+                                            onChange={(e) => setWithdrawalAmount(e.target.value)}
                                         />
                                     </div>
 
@@ -1050,17 +1173,20 @@ useEffect(() => {
                                 <span className="text-gray-400 font-semibold text-right w-full mt-1">
                                     Balance: 8,500 USDC
                                 </span>
-                            </div>
+                            </div> */}
 
                             {/* Purpose */}
                             <div className="flex flex-col text-left my-2">
                                 <label htmlFor="withdrawal-purpose" className="pl-2 text-lg font-semibold">
                                     Withdrawal Purpose
                                 </label>
+
                                 <Input
                                     id="withdrawal-purpose"
                                     className="bg-white/5 py-3 border-0 rounded-lg pl-2 mt-2 text-left"
                                     placeholder="Clothes & babies"
+                                    value={withdrawalPurpose}
+                                    onChange={(e) => setWithdrawalPurpose(e.target.value)}
                                 />
                             </div>
 
@@ -1069,16 +1195,19 @@ useEffect(() => {
                                 <label htmlFor="withdrawal-description" className="pl-2 text-lg font-semibold">
                                     Add Description
                                 </label>
+
                                 <Input
                                     id="withdrawal-description"
                                     className="bg-white/5 py-3 border-0 rounded-lg pl-2 mt-2 text-left"
                                     placeholder="Amazon River is a habitat for 2500+ species..."
+                                    value={withdrawalDescription}
+                                    onChange={(e) => setWithdrawalDescription(e.target.value)}
                                 />
                             </div>
 
                             {/* Summary Section */}
                             <Separator className="bg-white/10 my-4" />
-                            <div className="bg-white/5 p-4 rounded-lg">
+                            {/* <div className="bg-white/5 p-4 rounded-lg">
                                 <div className="flex justify-between">
                                     <span>Amount</span>
                                     <span>1,200 USDC</span>
@@ -1092,20 +1221,19 @@ useEffect(() => {
                                     <span>Total Amount</span>
                                     <span>1,200.0001 USDC</span>
                                 </div>
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* Sticky Footer */}
                         <div className="sticky bottom-0 z-10 bg-[#132E3F] backdrop-blur-md px-4 py-4 border-t mt-4 border-[#255C77]">
                             <div className="flex gap-4">
+
                                 <Button
                                     className="w-full bg-white text-black hover:bg-[#5794D1]/90 hover:text-white"
-                                    onClick={() => {
-                                        // Add withdrawal logic here
-                                        setShowSheet(false);
-                                    }}
+                                    onClick={handleWithdraw}
+                                    disabled={withdrawalLoading}
                                 >
-                                    Confirm Withdrawal
+                                    {withdrawalLoading ? 'Processing...' : 'Confirm Withdrawal'}
                                 </Button>
                             </div>
                         </div>

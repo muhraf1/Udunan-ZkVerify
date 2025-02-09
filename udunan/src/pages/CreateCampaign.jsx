@@ -7,7 +7,7 @@ import { useQuery, gql } from '@apollo/client';
 import { toast } from 'sonner';
 
 //smart contract setup 
-import { ethers } from 'ethers';
+
 // import { CampaignFactoryModule} from '../../hardhat/ignition/modules/CampaignFactory';
 import { Input } from '@/components/ui/input';
 import TipTapImage from '@tiptap/extension-image';

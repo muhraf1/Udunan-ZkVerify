@@ -5,7 +5,7 @@ import { gql, useQuery } from '@apollo/client';
 import { Heart, MapPin, X, ChevronsRight, Link, ArrowUpRight,
    Calendar, Instagram, Globe, Twitter, Dot,  Github,
   Youtube,
-  Send,    Linkedin
+  Send,    Linkedin,Copy
    } from "lucide-react";
 import {
   Sheet,
@@ -126,6 +126,8 @@ export function ContentFeedHome({ category }) {
   const navigate = useNavigate();
   const { category: urlCategory, urlId } = useParams();  // State to manage the selected donation and sheet visibility
 
+
+ 
   // State to manage selected donation
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [previousRoute, setPreviousRoute] = useState(null);
@@ -151,6 +153,8 @@ export function ContentFeedHome({ category }) {
     if (filteredSocialLinks.length === 0) {
         return null;
     }
+
+
 
     return (
         <div className="flex space-x-4 items-center">
@@ -259,6 +263,18 @@ export function ContentFeedHome({ category }) {
 
 
 
+  const copyAddress = () => {
+  
+    const url = `${selectedDonation.address}`; // Append selectedDonation.id as suffix
+    navigator.clipboard.writeText(url)
+        .then(() => {
+            alert("Link copied to clipboard!"); // Notify the user
+        })
+        .catch((err) => {
+            console.error("Failed to copy: ", err);
+            alert("Failed to copy the link. Please try again.");
+        });
+};
 
   
   // Only configure links if we have user data
@@ -1072,6 +1088,7 @@ const donationsData = [
                   <div>
                     <div className="text-lg text-left font-bold text-white truncate">
                       {donation.title}
+
                     </div>
                   </div>
 
@@ -1180,6 +1197,8 @@ const donationsData = [
                   <div className="text-xl font-bold">
                     {selectedDonation.title}
                   </div>
+                  <div className="text-sm font-light ">{selectedDonation.address} <button className='bg-[#173C4F] rounded-2xl p-2 ' onClick={copyAddress}><Copy className='w-4 h-4' /></button></div>
+
                   <div className=" flex justify-start py-2 gap-3 items-center mb-2" onClick={() => navigateToProfilePage(selectedDonation?.user.id)}>
                     <Avatar className="h-7 w-7 mx-2 cursor-pointer">
                     <AvatarImage src={selectedDonation?.user.userimg} />
