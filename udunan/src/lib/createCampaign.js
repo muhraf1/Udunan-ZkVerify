@@ -1,12 +1,12 @@
 import { ethers } from "ethers";
 
-
-// Connect to Ethereum network
-const provider = new ethers.JsonRpcProvider("https://arb-sepolia.g.alchemy.com/v2/fIXrkXUidprdr-G3VTuaqZ2jCcWnYDwm");
-
-// Create a wallet instance using private key
-const privateKey = ""; // Replace with your private key
-const wallet = new ethers.Wallet(privateKey, provider);
+// Connect to Ethereum network using browser provider
+async function getProvider() {
+  if (!window.ethereum) {
+    throw new Error("Please install a wallet extension (e.g., MetaMask)");
+  }
+  return new ethers.BrowserProvider(window.ethereum);
+}
 
 // Address of the deployed CampaignFactory contract
 const campaignFactoryAddress = "0x9d24Dca37527Fbc79991cA223B8634b754CED911";
@@ -17,14 +17,15 @@ const campaignFactoryABI = [
   {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"campaignAddress","type":"address"},{"indexed":true,"internalType":"address","name":"owner","type":"address"}],"name":"CampaignCreated","type":"event"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"campaigns","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"_title","type":"string"},{"internalType":"string","name":"_description","type":"string"},{"internalType":"uint256","name":"_goal","type":"uint256"}],"name":"createCampaign","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getAllCampaigns","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"}
 ];
 
-// Create a contract instance
-const campaignFactory = new ethers.Contract(campaignFactoryAddress, campaignFactoryABI, wallet);
-
 // Function to create a new campaign
 export async function createCampaign(title, description, goal) {
   try {
+    const provider = await getProvider();
+    const signer = await provider.getSigner();
+    const campaignFactory = new ethers.Contract(campaignFactoryAddress, campaignFactoryABI, signer);
+
     const tx = await campaignFactory.createCampaign(title, description, ethers.parseEther(goal.toString()));
-    const receipt = await tx.wait(); // Wait for the transaction to be mined
+    const receipt = await tx.wait();
     
     // Get the CampaignCreated event from the receipt
     const event = receipt.logs[0];
