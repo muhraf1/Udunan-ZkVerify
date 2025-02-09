@@ -606,8 +606,8 @@ const createCampaignOnBlockchain = async (title, description, targetAmount) => {
                                 <SelectItem value="Emergency">Emergency</SelectItem>
                                 <SelectItem value="HealthCare">HealthCare</SelectItem>
                                 <SelectItem value="Education">Education</SelectItem>
-                                <SelectItem value="HealthCare">Animal</SelectItem>
-                                <SelectItem value="Education">Others</SelectItem>
+                                <SelectItem value="Animal">Animal</SelectItem>
+                                <SelectItem value="Others">Others</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

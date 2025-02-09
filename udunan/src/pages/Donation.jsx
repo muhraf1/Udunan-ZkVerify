@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
+
 import { ethers } from 'ethers';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate,Navigate  } from 'react-router-dom';
 import { X, MapPin, Heart } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { useQuery, gql } from '@apollo/client';
+import { useQuery, gql, useMutation } from '@apollo/client';
 import { toast } from 'sonner';
-import callGetAllCampaigns from '../lib/callContractFunction';
+import { donateToCampaign } from '../lib/transfer';
 
+// GraphQL Queries and Mutations
 const GET_CONTENT_BY_ID = gql`
   query GetContentById($id: ID!) {
     content(id: $id) {
@@ -30,107 +31,148 @@ const GET_CONTENT_BY_ID = gql`
       location
       address
       organizationName
-      organizationNameId
       imageSrc
-      description
-      startDate
-      endDate
-      userId
-      user {
-        id
-        name
-      }
-      donations {
-        id
-        amount
-        donor {
-          id
-          name
-        }
-        createdAt
-      }
     }
   }
 `;
 
+const CREATE_DONATE = gql`
+  mutation CreateDonate(
+    $contentId: String!
+    $amount: Float!
+    $msg: String
+    $tx_hash: String!
+    $fromAddress: String!
+    $toAddress: String!
+  ) {
+    createDonate(
+      contentId: $contentId
+      amount: $amount
+      msg: $msg
+      tx_hash: $tx_hash
+      fromAddress: $fromAddress
+      toAddress: $toAddress
+    ) {
+      id
+      amount
+      msg
+      tx_hash
+    }
+  }
+`;
+
+// Add useAuth import at the top
+import { useAuth } from '@/components/ui/AuthContext';
+
 const DonationPage = () => {
+  // Add authentication state
+  const { isLoggedIn, token } = useAuth();
+  
+  // State Management
   const { id } = useParams();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [donationAmount, setDonationAmount] = useState('');
   const [hopeMessage, setHopeMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [contract, setContract] = useState(null);
-  const navigate = useNavigate();
 
-  const { loading: queryLoading, error: queryError, data } = useQuery(GET_CONTENT_BY_ID, {
-    variables: { id },
-    skip: !id
-  });
-
-  // Smart Contract setup 
-    const initializeContract = async () => {
-      try {
-        console.log('Initializing contract...');
-        const campaigns = await callGetAllCampaigns();
-        console.log('Retrieved campaigns:', campaigns);
-      } catch (error) {
-        console.error('Error initializing contract:', error);
-        toast.error('Failed to initialize contract');
-      }
-    };
- 
-
-  useEffect(() => {
-    setIsOpen(true);
-    initializeContract();
-  }, []);
-
- 
+  // Event Handlers
   const handleClose = () => {
     setIsOpen(false);
     navigate("/");
   };
 
-  const handleDonate = async () => {
-    try {
-      setLoading(true);
+  // Effects
+  useEffect(() => {
+    setIsOpen(true);
+  }, []);
 
-      if (!contract) {
-        throw new Error('Please connect your wallet first');
+  // GraphQL Hooks
+  const { loading: queryLoading, error: queryError, data } = useQuery(GET_CONTENT_BY_ID, {
+    variables: { id },
+  });
+
+  // Update mutation to include authentication
+  const [createDonate] = useMutation(CREATE_DONATE, {
+    context: {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    },
+  });
+
+  
+  const handleDonate = async (e) => {
+    e.preventDefault();
+    try {
+      // Check authentication first
+      if (!isLoggedIn || !token) {
+        toast.error("Please log in to make a donation");
+        return;
       }
+
+      setLoading(true);
 
       if (!donationAmount || donationAmount <= 0) {
         throw new Error('Please enter a valid donation amount');
       }
 
-      // Convert donation amount to Wei
-      const amountInWei = ethers.utils.parseEther(donationAmount.toString());
+      if (!data?.content?.address) {
+        throw new Error('Campaign address not found');
+      }
 
-      // Send transaction
-      const tx = await contract.donate({
-        value: amountInWei
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = await provider.getSigner();
+      const fromAddress = await signer.getAddress();
+
+      // Check user's balance in Ether
+      const balanceWei = await provider.getBalance(fromAddress);
+      const balanceEther = ethers.formatEther(balanceWei);
+      
+      if (parseFloat(balanceEther) < parseFloat(donationAmount)) {
+        throw new Error('Insufficient funds in your wallet');
+      }
+
+      // Process blockchain transaction (amount is already in Ether)
+      const { hash } = await donateToCampaign(data.content.address, donationAmount);
+
+      // Create database record (amount stays in Ether for DB)
+      await createDonate({
+        variables: {
+          contentId: data.content.id,
+          amount: parseFloat(donationAmount),
+          msg: hopeMessage || "",
+          tx_hash: hash,
+          fromAddress: fromAddress,
+          toAddress: data.content.address
+        }
       });
 
-      // Wait for transaction confirmation
-      const receipt = await tx.wait();
-
       toast.success('Thank you for your donation!');
-
-      // Clear form
       setDonationAmount('');
       setHopeMessage('');
-      
-      // Close sheet
       handleClose();
 
     } catch (err) {
-      toast.error('Error ',err.message);
-
+      console.error('Donation error:', err);
+      if (err.code === 4001) {
+        toast.error('Transaction cancelled');
+        handleClose();
+      } else {
+        toast.error(err.message || 'Failed to process donation');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Add authentication redirect
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Loading and Error States
   if (queryLoading) return <div>Loading...</div>;
   if (queryError) return <div>Error: {queryError.message}</div>;
   if (!data?.content) return <div>No content found</div>;
@@ -141,6 +183,7 @@ const DonationPage = () => {
     100
   );
 
+  // Render
   return (
     <div className="relative min-h-screen">
       {isOpen && (
@@ -150,11 +193,12 @@ const DonationPage = () => {
       <Sheet open={isOpen} onOpenChange={handleClose}>
         <SheetContent 
           side="bottom" 
-          className="h-[100dvh] rounded-t-lg  backdrop-blur-md border-0 pt-10 pb-10 "
+          className="h-[100dvh] rounded-t-lg backdrop-blur-md border-0 pt-10 pb-10"
           style={{ 
             background: 'linear-gradient(to bottom right, #1B4558, #041221)',
           }}
         >
+          {/* Close Button */}
           <button
             onClick={handleClose}
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 bg-transparent border-0 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
@@ -163,13 +207,16 @@ const DonationPage = () => {
             <span className="sr-only">Close</span>
           </button>
 
-          <div className="max-w-xl mx-auto h-full  bg-white/5 p-4 border-white/5 rounded-xl px-10 pt-10">
-            <div className="w-full rounded-lg"  style={{
-                background: "linear-gradient(to bottom right, rgba(73, 106, 121, 0.2), rgba(52, 59, 70, 0.2))",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                backdropFilter: "blur(8px)",
-              }}>
+          <div className="max-w-xl mx-auto h-full bg-white/5 p-4 border-white/5 rounded-xl px-10 pt-10">
+            {/* Campaign Info Section */}
+            <div className="w-full rounded-lg" style={{
+              background: "linear-gradient(to bottom right, rgba(73, 106, 121, 0.2), rgba(52, 59, 70, 0.2))",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              backdropFilter: "blur(8px)",
+            }}>
+              {/* Campaign Details */}
               <div className="flex justify-between items-center p-8 gap-6">
+                {/* Left Column - Campaign Info */}
                 <div className="w-1/2">
                   <div className="flex items-center gap-2 text-xs text-gray-400 pb-2">
                     <MapPin className="h-4 w-4" />
@@ -180,6 +227,7 @@ const DonationPage = () => {
                     {donation.title}
                   </div>
 
+                  {/* Progress Section */}
                   <div className="mt-2">
                     <div className="flex justify-between text-xs text-white font-base pb-2 items-center">
                       <span>{donation.organizationName}</span>
@@ -196,6 +244,7 @@ const DonationPage = () => {
                       indicatorClassName="bg-[#5794D1]"
                     />
 
+                    {/* Campaign Stats */}
                     <div className="p-0 mt-2 flex justify-between items-center text-sm text-gray-400">
                       <div className="flex items-center gap-2">
                         <Heart className="h-4 w-4 text-[#5794D1]" />
@@ -214,6 +263,7 @@ const DonationPage = () => {
                   </div>
                 </div>
 
+                {/* Right Column - Campaign Image */}
                 <div className="w-1/2 flex items-center justify-center">
                   <div className="w-full h-32 overflow-hidden rounded-md">
                     <img
@@ -224,20 +274,18 @@ const DonationPage = () => {
                   </div>
                 </div>
               </div>
-              
-          
             </div>
 
+            {/* Donation Form */}
             <div className="grid gap-4 py-4">
-
+              {/* Amount Input */}
               <div className="grid grid-row-2 items-center gap-4 p-4">
-        
                 <Label htmlFor="withdrawal-amount" className="text-left text-white">
-                Enter Your Donation
-                        </Label>
-                        <div className="flex bg-transparent justify-between gap-2">
-                            <div className="flex bg-white/5 items-center w-full rounded-l-lg p-1 justify-center">
-                            <Input
+                  Enter Your Donation
+                </Label>
+                <div className="flex bg-transparent justify-between gap-2">
+                  <div className="flex bg-white/5 items-center w-full rounded-l-lg p-1 justify-center">
+                    <Input
                       id="withdrawal-amount"
                       className="text-white border-0 text-right py-6"
                       placeholder="0.01"
@@ -247,17 +295,18 @@ const DonationPage = () => {
                       value={donationAmount}
                       onChange={(e) => setDonationAmount(e.target.value)}
                     />
-                            </div>
-                            <div className="flex bg-white/5 items-center rounded-r-lg p-2 px-3 justify-center">
-                                <img
-                                    className="w-8 h-7 rounded-full"
-                                    src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png?v=040"
-                                    alt="USDC Logo"
-                                />
-                            </div>
-                        </div>
+                  </div>
+                  <div className="flex bg-white/5 items-center rounded-r-lg p-2 px-3 justify-center">
+                    <img
+                      className="w-8 h-7 rounded-full"
+                      src="https://cryptologos.cc/logos/usd-coin-usdc-logo.png?v=040"
+                      alt="USDC Logo"
+                    />
+                  </div>
+                </div>
               </div>
 
+              {/* Message Input */}
               <div className="grid grid-row-2 items-center gap-4 p-4">
                 <Label htmlFor="name" className="text-left text-white">
                   Hope Message
@@ -269,20 +318,19 @@ const DonationPage = () => {
                   placeholder="I hope everything will be better, sooner ! ✨" 
                   className="col-span-3 py-8 border-0 bg-white/5 text-white" 
                 />
-                </div>
+              </div>
             </div>
 
+            {/* Submit Button */}
             <SheetFooter className="px-4">
-              <SheetClose className="w-full" asChild>
-                <Button 
-                  type="submit" 
-                  onClick={handleDonate}
-                  disabled={loading}
-                  className="bg-[#5794D1] text-white py-6 hover:bg-white font-bold text-lg hover:text-black "
-                >
+              <Button 
+                type="submit" 
+                onClick={handleDonate}
+                disabled={loading}
+                className="bg-[#5794D1] text-white py-6 hover:bg-white font-bold text-lg hover:text-black w-full"
+              >
                 {loading ? 'Processing...' : 'Donate'}
-                </Button>
-              </SheetClose>
+              </Button>
             </SheetFooter>
           </div>
         </SheetContent>
@@ -290,6 +338,5 @@ const DonationPage = () => {
     </div>
   );
 };
-
 
 export default DonationPage;
