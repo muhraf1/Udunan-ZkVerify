@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,8 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { useQuery, gql } from '@apollo/client';
+import { toast } from 'sonner';
+import callGetAllCampaigns from '../lib/callContractFunction';
 
 const GET_CONTENT_BY_ID = gql`
   query GetContentById($id: ID!) {
@@ -53,24 +56,83 @@ const GET_CONTENT_BY_ID = gql`
 const DonationPage = () => {
   const { id } = useParams();
   const [isOpen, setIsOpen] = useState(false);
+  const [donationAmount, setDonationAmount] = useState('');
+  const [hopeMessage, setHopeMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [contract, setContract] = useState(null);
   const navigate = useNavigate();
 
-  const { loading, error, data } = useQuery(GET_CONTENT_BY_ID, {
+  const { loading: queryLoading, error: queryError, data } = useQuery(GET_CONTENT_BY_ID, {
     variables: { id },
     skip: !id
   });
 
+  // Smart Contract setup 
+    const initializeContract = async () => {
+      try {
+        console.log('Initializing contract...');
+        const campaigns = await callGetAllCampaigns();
+        console.log('Retrieved campaigns:', campaigns);
+      } catch (error) {
+        console.error('Error initializing contract:', error);
+        toast.error('Failed to initialize contract');
+      }
+    };
+ 
+
   useEffect(() => {
     setIsOpen(true);
+    initializeContract();
   }, []);
 
+ 
   const handleClose = () => {
     setIsOpen(false);
     navigate("/");
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  const handleDonate = async () => {
+    try {
+      setLoading(true);
+
+      if (!contract) {
+        throw new Error('Please connect your wallet first');
+      }
+
+      if (!donationAmount || donationAmount <= 0) {
+        throw new Error('Please enter a valid donation amount');
+      }
+
+      // Convert donation amount to Wei
+      const amountInWei = ethers.utils.parseEther(donationAmount.toString());
+
+      // Send transaction
+      const tx = await contract.donate({
+        value: amountInWei
+      });
+
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+
+      toast.success('Thank you for your donation!');
+
+      // Clear form
+      setDonationAmount('');
+      setHopeMessage('');
+      
+      // Close sheet
+      handleClose();
+
+    } catch (err) {
+      toast.error('Error ',err.message);
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (queryLoading) return <div>Loading...</div>;
+  if (queryError) return <div>Error: {queryError.message}</div>;
   if (!data?.content) return <div>No content found</div>;
 
   const donation = data.content;
@@ -175,16 +237,16 @@ const DonationPage = () => {
                         </Label>
                         <div className="flex bg-transparent justify-between gap-2">
                             <div className="flex bg-white/5 items-center w-full rounded-l-lg p-1 justify-center">
-                                <Input
-                                    id="withdrawal-amount"
-                                    className="text-white border-0 text-right py-6"
-                                    placeholder="1,200"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    // value={formData.targetAmount}
-                                    onChange={(e) => handleFormChange('targetAmount', e.target.value)}
-                                />
+                            <Input
+                      id="withdrawal-amount"
+                      className="text-white border-0 text-right py-6"
+                      placeholder="0.01"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={donationAmount}
+                      onChange={(e) => setDonationAmount(e.target.value)}
+                    />
                             </div>
                             <div className="flex bg-white/5 items-center rounded-r-lg p-2 px-3 justify-center">
                                 <img
@@ -200,17 +262,25 @@ const DonationPage = () => {
                 <Label htmlFor="name" className="text-left text-white">
                   Hope Message
                 </Label>
-                <Input id="name" placeholder="I hope everything will be better, sooner ! ✨" className="col-span-3 py-8 border-0 bg-white/5  text-white " />
-              </div>
+                <Input 
+                  id="hope-message" 
+                  value={hopeMessage}
+                  onChange={(e) => setHopeMessage(e.target.value)}
+                  placeholder="I hope everything will be better, sooner ! ✨" 
+                  className="col-span-3 py-8 border-0 bg-white/5 text-white" 
+                />
+                </div>
             </div>
 
             <SheetFooter className="px-4">
               <SheetClose className="w-full" asChild>
                 <Button 
                   type="submit" 
+                  onClick={handleDonate}
+                  disabled={loading}
                   className="bg-[#5794D1] text-white py-6 hover:bg-white font-bold text-lg hover:text-black "
                 >
-                    Donate
+                {loading ? 'Processing...' : 'Donate'}
                 </Button>
               </SheetClose>
             </SheetFooter>
@@ -220,5 +290,6 @@ const DonationPage = () => {
     </div>
   );
 };
+
 
 export default DonationPage;

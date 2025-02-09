@@ -1,15 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '@/components/ui/AuthContext'; // Import the hook
+import { createCampaign } from '@/lib/createCampaign';
 import { Button } from '@/components/ui/button';
 import { useNavigate, Navigate } from 'react-router-dom'; // Added missing import
 import { useQuery, gql } from '@apollo/client';
 import { toast } from 'sonner';
 
+//smart contract setup 
+import { ethers } from 'ethers';
+// import { CampaignFactoryModule} from '../../hardhat/ignition/modules/CampaignFactory';
 import { Input } from '@/components/ui/input';
 import TipTapImage from '@tiptap/extension-image';
 import { useMutation } from '@apollo/client';
 import { Textarea } from "@/components/ui/textarea"
-
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Bold from '@tiptap/extension-bold';
@@ -18,7 +21,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import Heading from '@tiptap/extension-heading';
 import { CalendarDays, Dot, CircleArrowUp, MapPin } from "lucide-react"; // Assuming you're using Lucide icons
 
-
+    
 import {
     Popover,
     PopoverContent,
@@ -303,6 +306,30 @@ const CreateCampaign = () => {
 
 //    the end of handling image 
 
+//create smart contract 
+const createCampaignOnBlockchain = async (title, description, targetAmount) => {
+    try {
+        // Create campaign using the imported function
+        const campaignAddress = await createCampaign(title, description, targetAmount);
+        
+        if (!campaignAddress) {
+            throw new Error("Failed to get campaign address");
+        }
+
+        // Store the campaign address in formData
+        setFormData(prev => ({
+            ...prev,
+            address: campaignAddress
+        }));
+
+        return campaignAddress;
+    } catch (error) {
+        console.error("Blockchain error:", error);
+        throw new Error(error.message || "Failed to create campaign on blockchain");
+    }
+};
+
+
     // the start of logic submit 
     const handleSubmit = async () => {
         if (!isLoggedIn || !token) {
@@ -329,12 +356,19 @@ const CreateCampaign = () => {
         }
     
         try {
+            // Create campaign on blockchain
+            toast.info("Creating campaign on blockchain...");
+            const campaignAddress = await createCampaignOnBlockchain(title, description, targetAmount);
+
+            toast.success("Campaign created on blockchain!");
+    
+            // Save the campaign details to the backend
             await createContent({
                 variables: {
                     title,
                     category,
                     location,
-                    address,  // Include address
+                    address: campaignAddress,
                     isVerified,
                     imageSrc,
                     description,
@@ -343,7 +377,6 @@ const CreateCampaign = () => {
                     targetAmount: parseFloat(targetAmount),
                     organizationName: userData?.me?.name, 
                     organizationNameId: userData?.me?.id,
-
                 },
                 context: {
                     headers: {

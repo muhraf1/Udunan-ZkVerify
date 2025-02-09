@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@ignition": path.resolve(__dirname, "./ignition"),
       process: "process/browser",
       buffer: "buffer",
       util: "util",
@@ -14,6 +15,9 @@ export default defineConfig({
   },
   server: {
     historyApiFallback: true,
+    fs: {
+      allow: [".."], // Allow Vite to access files outside src
+    },
   },
   define: {
     'process.env': {},
