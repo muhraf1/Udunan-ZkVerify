@@ -986,10 +986,6 @@ const donationsData = [
             <DonateSection address={selectedDonation.address} />
 
 
-
-
-
-
             {/* footer note  */}
             <div className=" w-full justify-start mt-4">
               <Separator className=" bg-[#5C7683]" />
