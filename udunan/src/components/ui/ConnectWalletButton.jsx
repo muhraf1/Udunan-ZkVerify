@@ -6,17 +6,33 @@ const WalletSelect = React.lazy(() => import('@talismn/connect-components').then
 })));
 
 const ConnectWalletButton = forwardRef((props, ref) => {
-    const { selectedAccount, setSelectedAccount, selectedWallet, setSelectedWallet } = useAccount();
+    const { 
+        selectedAccount, 
+        setSelectedAccount, 
+        selectedWallet, 
+        setSelectedWallet,
+        connectToZkVerify 
+    } = useAccount();
     const [isWalletSelectOpen, setIsWalletSelectOpen] = useState(false);
 
-    const handleWalletConnectOpen = () => setIsWalletSelectOpen(true);
-    const handleWalletConnectClose = () => setIsWalletSelectOpen(false);
-
-    const handleWalletSelected = (wallet) => {
-        setSelectedWallet(wallet.extensionName);
+    const handleWalletConnectOpen = () => {
+        console.log('Opening wallet selector');
+        setIsWalletSelectOpen(true);
     };
 
-    const handleUpdatedAccounts = (accounts) => {
+    const handleWalletConnectClose = () => {
+        console.log('Closing wallet selector');
+        setIsWalletSelectOpen(false);
+    };
+
+    const handleWalletSelected = async (wallet) => {
+        console.log('Selected wallet:', wallet);
+        setSelectedWallet(wallet.extensionName);
+        await connectToZkVerify(); // Switch to zkVerify network
+    };
+
+    const handleUpdatedAccounts = async (accounts) => {
+        console.log('Updated accounts for zkVerify:', accounts);
         if (accounts && accounts.length > 0) {
             setSelectedAccount(accounts[0].address);
         } else {

@@ -14,24 +14,24 @@ const SuccessDonation = ({ isOpen, onClose, txHash }) => {
   };
 
   const zkVerifyCustomStyles = {
-    container: "w-full flex justify-center",
-    main: "w-[600px] flex flex-col items-center"
+    container: "w-full flex justify-center px-4",
+    main: "w-[600px] flex flex-col items-center space-y-6"
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[800px] min-h-[600px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[800px] min-h-[600px] p-6">
+        <DialogHeader className="mb-6">
           <div className="flex items-center justify-center mb-4">
             <CheckCircle2 className="h-12 w-12 text-green-500" />
           </div>
-          <DialogTitle className="text-center text-xl">Donation Successful!</DialogTitle>
+          <DialogTitle className="text-center text-xl mb-2">Donation Successful!</DialogTitle>
           <DialogDescription className="text-center">
             Thank you for your generous donation. Your transaction has been processed successfully.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col space-y-4 items-center justify-center">
-          <div className="flex items-center space-x-2">
+        <div className="flex flex-col space-y-6 items-center justify-center">
+          <div className="flex items-center space-x-2 mb-4">
             <p className="text-sm text-muted-foreground">Transaction Hash:</p>
             <a
               href={`https://sepolia.arbiscan.io/tx/${txHash}`}
@@ -44,12 +44,11 @@ const SuccessDonation = ({ isOpen, onClose, txHash }) => {
             </a>
           </div>
           
-          {/* Added ZkVerifyPage component */}
           <div className="w-full">
-            <ZkVerifyPage />
+            <ZkVerifyPage customStyles={zkVerifyCustomStyles} />
           </div>
           
-          <Button onClick={handleClose} className="w-full max-w-[600px]">
+          <Button onClick={handleClose} className="w-full max-w-[600px] mt-4">
             Close
           </Button>
         </div>

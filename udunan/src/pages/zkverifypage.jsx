@@ -56,73 +56,76 @@ export default function ZkVerifyPage({ customStyles }) {
       : null;
 
   return (
-      <div className={`${styles.page} ${customStyles?.container || ''}`}>
-        <div className={`${styles.main} ${customStyles?.main || ''}`}>
-          <img
-            src={zkVerifyLogo}
-            alt="zkVerify Logo"
-            style={{
-              width: '300px',  // Reduced from 450px
-              height: '100px', // Reduced from 150px
-              objectFit: 'contain'
-            }}
-          />
+    <div className={`${styles.page} ${customStyles?.container || ''}`}>
+      <div className={`${styles.main} ${customStyles?.main || ''}`}>
+        <img
+          src={zkVerifyLogo}
+          alt="zkVerify Logo"
+          style={{
+            width: '150px',
+            height: '40px',
+            objectFit: 'contain',
+            marginBottom: '0.5rem'
+          }}
+        />
 
+        <div className="space-y-2 w-2/3">
           <ConnectWalletButton ref={walletButtonRef} onWalletConnected={() => {}} />
 
           <button
-              onClick={handleSubmit}
-              className={`button ${styles.verifyButton}`}
-              disabled={!selectedAccount || !selectedWallet || loading}
+            onClick={handleSubmit}
+            className={`button ${styles.verifyButton} w-full mt-2`}
+            disabled={!selectedAccount || !selectedWallet || loading}
           >
             {loading ? (
-                <>
-                  Submitting...
-                  <div className="spinner"></div>
-                </>
+              <div className="flex items-center justify-center space-x-2">
+                <span>Submitting...</span>
+                <div className="spinner"></div>
+              </div>
             ) : (
-                'Submit Proof'
+              'Submit Proof'
             )}
           </button>
+        </div>
 
-          <div className={styles.resultContainer}>
-            {verificationResult && (
-                <p
-                    className={
-                      verificationResult.includes('failed') ||
-                      verificationResult.includes('Error') ||
-                      verificationResult.includes('Rejected')
-                          ? styles.resultError
-                          : styles.resultSuccess
-                    }
-                >
-                  {verificationResult}
-                </p>
-            )}
+        <div className={`${styles.resultContainer} mt-3 w-full text-sm`}>
+          {verificationResult && (
+            <p
+              className={`${
+                verificationResult.includes('failed') ||
+                verificationResult.includes('Error') ||
+                verificationResult.includes('Rejected')
+                  ? styles.resultError
+                  : styles.resultSuccess
+              } py-1`}
+            >
+              {verificationResult}
+            </p>
+          )}
 
-            {eventData && status === 'includedInBlock' && (
-                <div className={styles.resultSection}>
-                  <p>Block Hash: {eventData.blockHash || 'N/A'}</p>
-                </div>
-            )}
+          {eventData && status === 'includedInBlock' && (
+            <div className={`${styles.resultSection} py-1`}>
+              <p>Block Hash: {eventData.blockHash || 'N/A'}</p>
+            </div>
+          )}
 
-            {blockExplorerUrl && (
-                <div className={styles.resultLink}>
-                  <a href={blockExplorerUrl} target="_blank" rel="noopener noreferrer">
-                    View Transaction on Explorer
-                  </a>
-                </div>
-            )}
+          {blockExplorerUrl && (
+            <div className={`${styles.resultLink} py-1`}>
+              <a href={blockExplorerUrl} target="_blank" rel="noopener noreferrer">
+                View Transaction on Explorer
+              </a>
+            </div>
+          )}
 
-            {transactionResult && (
-                <div className={styles.transactionDetails}>
-                  <p>Transaction Hash: {transactionResult.txHash || 'N/A'}</p>
-                  <p>Proof Type: {transactionResult.proofType || 'N/A'}</p>
-                  <p>Attestation ID: {transactionResult.attestationId || 'N/A'}</p>
-                </div>
-            )}
-          </div>
+          {transactionResult && (
+            <div className={`${styles.transactionDetails} space-y-1 py-1`}>
+              <p>Transaction Hash: {transactionResult.txHash || 'N/A'}</p>
+              <p>Proof Type: {transactionResult.proofType || 'N/A'}</p>
+              <p>Attestation ID: {transactionResult.attestationId || 'N/A'}</p>
+            </div>
+          )}
         </div>
       </div>
+    </div>
   );
 }
