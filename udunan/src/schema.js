@@ -56,6 +56,7 @@ type Donate {
   donorId: String!
   donor: User!
   contentId: String!
+  attestationId: String
   content: Content!
   fromAddress: String!
   toAddress: String!
@@ -192,6 +193,7 @@ type Mutation {
     tx_hash: String!
     fromAddress: String!
     toAddress: String!
+    attestationId: String
   ): Donate!
 
   createWithdraw(

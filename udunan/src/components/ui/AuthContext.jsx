@@ -236,7 +236,6 @@ export const AuthProvider = ({ children }) => {
     logout,
     user,
     token,
-
   };
 
   return (

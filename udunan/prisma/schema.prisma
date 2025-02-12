@@ -75,6 +75,7 @@ model Donate {
   tx_hash     String     @unique
   amount      Decimal    @db.Decimal(20,8)
   msg         String?
+  attestationId String?
   
   // Relations
   donorId     String

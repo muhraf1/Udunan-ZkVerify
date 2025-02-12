@@ -15,44 +15,32 @@ const campaignABI = [
   {"inputs":[],"name":"donate","outputs":[],"stateMutability":"payable","type":"function"}
 ];
 
+// Function to donate to a campaign
 export async function donateToCampaign(campaignAddress, amount) {
   try {
     const provider = await getProvider();
     const signer = await provider.getSigner();
     const campaign = new ethers.Contract(campaignAddress, campaignABI, signer);
 
-    // Convert amount to Wei before sending transaction
-    const amountInWei = ethers.parseEther(amount.toString());
-    
-    // Send transaction with Wei value
+    // Convert amount from ether to wei and send the transaction
     const tx = await campaign.donate({
-      value: amountInWei
+      value: ethers.parseEther(amount.toString())
     });
-
-    // Wait for transaction confirmation
     const receipt = await tx.wait();
 
-    // Find DonationReceived event
-    const donationEvent = receipt.logs.find(log => {
-      try {
-        return log.topics[0] === ethers.id("DonationReceived(address,uint256)");
-      } catch {
-        return false;
-      }
-    });
+    // Get the DonationReceived event from the receipt
+    const event = receipt.logs[0];
+    const donationAmount = ethers.formatEther(event.args[1]);
 
-    if (!donationEvent) {
-      throw new Error("Donation event not found in transaction receipt");
-    }
+    console.log("Donation successful!");
+    console.log("Amount donated:", donationAmount, "ETH");
 
-    return {
-      hash: receipt.hash,
-      donationEvent
-    };
+    return receipt; // Return the transaction receipt
   } catch (error) {
     console.error("Error donating to campaign:", error);
-    throw error;
+    throw error; // Throw the error to be handled by the caller
   }
 }
+
 // Example usage
 // donateToCampaign("0xbe02088c70a3d6dbbb6880aa875618d7739aed70", "0.001");

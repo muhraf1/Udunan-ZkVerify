@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
+import { useAuth } from '../components/ui/AuthContext';
 import { ethers } from 'ethers';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,11 @@ import { Label } from "@/components/ui/label";
 import { useParams, useNavigate,Navigate  } from 'react-router-dom';
 import { X, MapPin, Heart } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import SuccessDonation from './Successdonation';
+
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import {
   Sheet,
   SheetContent,
@@ -14,6 +19,14 @@ import {
 } from "@/components/ui/sheet";
 import { useQuery, gql, useMutation } from '@apollo/client';
 import { toast } from 'sonner';
+
+
+
+
+// zkverify import
+// import {useZkVerify} from '../hooks/useZkVerify'
+// import proofData from '../proofs/risc0_v1_0.json';
+
 import { donateToCampaign } from '../lib/transfer';
 
 // GraphQL Queries and Mutations
@@ -44,6 +57,7 @@ const CREATE_DONATE = gql`
     $tx_hash: String!
     $fromAddress: String!
     $toAddress: String!
+    $attestationId: String
   ) {
     createDonate(
       contentId: $contentId
@@ -52,22 +66,29 @@ const CREATE_DONATE = gql`
       tx_hash: $tx_hash
       fromAddress: $fromAddress
       toAddress: $toAddress
+      attestationId: $attestationId
     ) {
       id
       amount
       msg
       tx_hash
+      attestationId
     }
   }
 `;
 
 // Add useAuth import at the top
-import { useAuth } from '@/components/ui/AuthContext';
+
+// import { useZkVerify } from '@/hooks/useZkVerify.jsx';
+
 
 const DonationPage = () => {
   // Add authentication state
-  const { isLoggedIn, token } = useAuth();
-  
+  const { isLoggedIn, token, user } = useAuth();
+
+  //success state
+const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+const [transactionHash, setTransactionHash] = useState('');
   // State Management
   const { id } = useParams();
   const navigate = useNavigate();
@@ -75,6 +96,10 @@ const DonationPage = () => {
   const [donationAmount, setDonationAmount] = useState('');
   const [hopeMessage, setHopeMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Add zkVerify hook
+  // const { status, eventData, transactionResult, error, onVerifyProof } = useZkVerify();
+  // const [attestationId, setAttestationId] = useState(null);
 
   // Event Handlers
   const handleClose = () => {
@@ -110,6 +135,10 @@ const DonationPage = () => {
         toast.error("Please log in to make a donation");
         return;
       }
+      // Ensure user.address is used correctly
+      if (!user?.address) {
+        throw new Error('User address is not available');
+      }
 
       setLoading(true);
 
@@ -126,33 +155,35 @@ const DonationPage = () => {
       const signer = await provider.getSigner();
       const fromAddress = await signer.getAddress();
 
-      // Check user's balance in Ether
-      const balanceWei = await provider.getBalance(fromAddress);
-      const balanceEther = ethers.formatEther(balanceWei);
-      
-      if (parseFloat(balanceEther) < parseFloat(donationAmount)) {
-        throw new Error('Insufficient funds in your wallet');
+      // Process blockchain transaction
+      const result = await donateToCampaign(
+        data.content.address, 
+        donationAmount,
+      );
+
+      if (!result) {
+        throw new Error('Transaction failed or hash not provided');
       }
 
-      // Process blockchain transaction (amount is already in Ether)
-      const { hash } = await donateToCampaign(data.content.address, donationAmount);
-
-      // Create database record (amount stays in Ether for DB)
+      console.log("check result: ", result);
+      // Create database record with attestation
       await createDonate({
         variables: {
           contentId: data.content.id,
           amount: parseFloat(donationAmount),
           msg: hopeMessage || "",
-          tx_hash: hash,
+          tx_hash: result.hash, // Ensure you are using result.hash here
           fromAddress: fromAddress,
-          toAddress: data.content.address
+          toAddress: data.content.address,
+          attestationId: "" // Optional field
         }
       });
 
-      toast.success('Thank you for your donation!');
+      toast.success('Donation successful');
+      setTransactionHash(result.hash); // Ensure you are setting the transaction hash here
+      setShowSuccessDialog(true);
       setDonationAmount('');
       setHopeMessage('');
-      handleClose();
 
     } catch (err) {
       console.error('Donation error:', err);
@@ -167,10 +198,41 @@ const DonationPage = () => {
     }
   };
 
+  // Add this effect to handle verification status changes
+  // useEffect(() => {
+  //   if (error) {
+  //     console.error('Verification error:', error);
+  //   } else if (status === 'verified') {
+  //     console.log('Proof verified successfully');
+  //   } else if (status === 'includedInBlock' && eventData) {
+  //     console.log('Transaction included in block:', eventData);
+  //   }
+  // }, [error, status, eventData]);
+
   // Add authentication redirect
   if (!token) {
     return <Navigate to="/" replace />;
   }
+
+
+  // Add attestation status display
+  // const renderAttestationStatus = () => {
+  //   if (status === 'verifying') {
+  //     return <div className="text-yellow-400">Verifying donation...</div>;
+  //   }
+  //   if (status === 'verified') {
+  //     return (
+  //       <div className="text-green-400">
+  //         Donation verified
+  //         <div className="text-sm">Attestation ID: {attestationId}</div>
+  //       </div>
+  //     );
+  //   }
+  //   if (status === 'error') {
+  //     return <div className="text-red-400">Verification failed: {error}</div>;
+  //   }
+  //   return null;
+  // };
 
   // Loading and Error States
   if (queryLoading) return <div>Loading...</div>;
@@ -189,6 +251,8 @@ const DonationPage = () => {
       {isOpen && (
         <div className="fixed inset-0 backdrop-blur-lg bg-background/80" />
       )}
+
+  
       
       <Sheet open={isOpen} onOpenChange={handleClose}>
         <SheetContent 
@@ -206,6 +270,8 @@ const DonationPage = () => {
             <X className="h-6 w-6 text-white" />
             <span className="sr-only">Close</span>
           </button>
+
+
 
           <div className="max-w-xl mx-auto h-full bg-white/5 p-4 border-white/5 rounded-xl px-10 pt-10">
             {/* Campaign Info Section */}
@@ -275,6 +341,7 @@ const DonationPage = () => {
                 </div>
               </div>
             </div>
+            
 
             {/* Donation Form */}
             <div className="grid gap-4 py-4">
@@ -334,7 +401,15 @@ const DonationPage = () => {
             </SheetFooter>
           </div>
         </SheetContent>
-      </Sheet>
+
+
+        // Add the SuccessDonation component before the closing Sheet component
+<SuccessDonation
+  isOpen={showSuccessDialog}
+  onClose={() => setShowSuccessDialog(false)}
+  txHash={transactionHash}
+/>
+    </Sheet>
     </div>
   );
 };

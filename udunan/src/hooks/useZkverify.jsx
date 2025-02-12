@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAccount } from '@/context/AccountContext';
-import { ethers } from 'ethers';
 
 export function useZkVerify() {
     const { selectedAccount, selectedWallet } = useAccount();
@@ -37,7 +36,7 @@ export function useZkVerify() {
                     vk: vk,
                     version: 'V1_0'
                 }
-            });
+            });          
 
             events.on('includedInBlock', (data) => {
                 setStatus('includedInBlock');

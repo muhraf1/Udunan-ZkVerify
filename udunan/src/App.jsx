@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 //rainbow wallets
-
+// import { AccountProvider } from './context/AccountContext';
 
 // UI Components
 import { EmblaCarousel } from "./components/ui/EmblaCarousel";
