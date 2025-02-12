@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 //rainbow wallets
-// import { AccountProvider } from './context/AccountContext';
+import { AccountProvider } from './context/AccountContext.jsx'  // correct
 
 // UI Components
 import { EmblaCarousel } from "./components/ui/EmblaCarousel";
@@ -50,6 +50,8 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      {/* zkverify accoount provider */}
+      <AccountProvider>
       <AlchemyAccountProvider config={config} queryClient={queryClient}>
         <Router>
           <AuthProvider>
@@ -137,6 +139,7 @@ function App() {
           </AuthProvider>
         </Router>
       </AlchemyAccountProvider>
+      </AccountProvider>
     </QueryClientProvider>
   );
 }

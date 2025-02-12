@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, ExternalLink } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
+import ZkVerifyPage from '@/pages/zkverifypage';
 
 const SuccessDonation = ({ isOpen, onClose, txHash }) => {
   const navigate = useNavigate();
@@ -12,9 +13,14 @@ const SuccessDonation = ({ isOpen, onClose, txHash }) => {
     navigate('/');
   };
 
+  const zkVerifyCustomStyles = {
+    container: "w-full flex justify-center",
+    main: "w-[600px] flex flex-col items-center"
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[800px] min-h-[600px]">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
             <CheckCircle2 className="h-12 w-12 text-green-500" />
@@ -37,7 +43,13 @@ const SuccessDonation = ({ isOpen, onClose, txHash }) => {
               <ExternalLink className="h-4 w-4 ml-1" />
             </a>
           </div>
-          <Button onClick={handleClose} className="w-full">
+          
+          {/* Added ZkVerifyPage component */}
+          <div className="w-full">
+            <ZkVerifyPage />
+          </div>
+          
+          <Button onClick={handleClose} className="w-full max-w-[600px]">
             Close
           </Button>
         </div>

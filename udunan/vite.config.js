@@ -11,6 +11,7 @@ export default defineConfig({
       process: "process/browser",
       buffer: "buffer",
       util: "util",
+      extensions: ['.js', '.jsx']
     },
   },
   server: {
