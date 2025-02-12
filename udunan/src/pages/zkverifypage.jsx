@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useAccount } from '@/context/AccountContext';
-import ConnectWalletButton from '../components/ui/ConnectWalletButton';
+import ConnectWalletButton from '@/components/ui/ConnectWalletButton';
 import { useZkVerify } from '@/hooks/useZkVerify';
 import styles from './zkverifypage.module.css';
 import proofData from '../proofs/risc0_v1_0.json';

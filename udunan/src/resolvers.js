@@ -160,6 +160,20 @@ const resolvers = {
       });
     },
 
+    withdrawalsByContent: async (_, { contentId }) => {
+      return prisma.withdraw.findMany({
+        where: {
+          contentId: contentId
+        },
+        include: {
+          content: true
+        },
+        orderBy: {
+          createdAt: 'desc'  // Most recent withdrawals first
+        }
+      });
+    },
+
     withdrawals: async (_, { take, skip }) => {
       return prisma.withdraw.findMany({
         take,

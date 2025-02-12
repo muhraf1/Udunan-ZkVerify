@@ -124,8 +124,12 @@ type Query {
   donations(take: Int, skip: Int): [Donate!]!
   donationsByContent(contentId: ID!): [Donate!]!
   donationsByUser(userId: ID!): [Donate!]!
+
   withdrawals(take: Int, skip: Int): [Withdraw!]!
   withdrawalsByContent(contentId: ID!): [Withdraw!]!
+
+
+
   userprofile(id: ID!): User
   usermanage: User
   me: User

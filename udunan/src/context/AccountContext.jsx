@@ -6,7 +6,6 @@ export const AccountContext = createContext(undefined);
 export const AccountProvider = ({ children }) => {
     const [selectedAccount, setSelectedAccount] = useState(null);
     const [selectedWallet, setSelectedWallet] = useState(null);
-    const [network, setNetwork] = useState('zkverify_testnet');
 
     // Effect to handle network-specific logic
     useEffect(() => {
@@ -40,14 +39,7 @@ export const AccountProvider = ({ children }) => {
     };
 
     return (
-        <AccountContext.Provider value={{ 
-            selectedAccount, 
-            setSelectedAccount, 
-            selectedWallet, 
-            setSelectedWallet,
-            network,
-            connectToZkVerify
-        }}>
+        <AccountContext.Provider value={{ selectedAccount, setSelectedAccount, selectedWallet, setSelectedWallet }}>
             {children}
         </AccountContext.Provider>
     );

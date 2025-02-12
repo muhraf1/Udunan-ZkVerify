@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Progress } from "@/components/ui/progress";
+import UpdateSection from './UpdateSection';
 import { gql, useQuery } from '@apollo/client';
 import { Heart, MapPin, X, ChevronsRight, Link, ArrowUpRight,
    Calendar, Instagram, Globe, Twitter, Dot,  Github,
@@ -17,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import RichTextRenderer from '@/components/ui/richtextrender';
 
+import DonateSection from './donatesection';
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/Separator";
@@ -24,6 +26,23 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createSlug } from "@/lib/stringutils";
 import { useAuth } from './AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+
+const GET_WITHDRAWALS = gql`
+  query GetWithdrawalsByContent($contentId: ID!) {
+    withdrawalsByContent(contentId: $contentId) {
+      id
+      tx_hash
+      amount
+      title
+      description
+      fromAddress
+      toAddress
+      createdAt
+      updatedAt
+    }
+  }
+`;
 
 const GET_CONTENTS = gql`
   query GetContents {
@@ -294,6 +313,66 @@ export function ContentFeedHome({ category }) {
     return <SocialMediaIcons socialLinks={socialLinks} />;
   };
 
+  const WithdrawalsList = ({ contentId }) => {
+    const { loading, error, data } = useQuery(GET_WITHDRAWALS, {
+      variables: { contentId },
+      skip: !contentId,
+      onError: (error) => {
+        console.error("Withdrawal Query Error:", error);
+      }
+    });
+
+    console.log("ContentId in WithdrawalsList:", contentId);
+    console.log("Withdrawal Data:", data);
+  
+    if (loading) return <p>Loading withdrawals...</p>;
+    if (error) return <p>Error loading withdrawals: {error.message}</p>;
+    if (!data?.withdrawalsByContent?.length) return null;
+  
+    return (
+      <div className="w-full mt-4 space-y-4">
+        {data.withdrawalsByContent.map((withdrawal, index) => (
+          <div key={`${withdrawal.id}-${index}`} className="flex flex-col gap-4 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-lg text-white">{withdrawal.amount} ETH</span>
+              <span className="font-medium text-sm">{withdrawal.title}</span>
+              <Dot className="w-4 h-4" />
+              <span className="font-light text-xs">
+                {(() => {
+                  const withdrawalDate = new Date(Number(withdrawal.createdAt));
+                  const now = new Date();
+                  const diffTime = Math.abs(now - withdrawalDate);
+                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  
+                  if (diffDays === 0) {
+                    return 'Today';
+                  } else if (diffDays === 1) {
+                    return 'Yesterday';
+                  } else {
+                    return `${diffDays} days ago`;
+                  }
+                })()}
+              </span>
+            </div>
+            <div className="flex-1 flex flex-col bg-white/5 p-4 rounded-lg border border-[#5C7683]/20">
+            <p className="font-semibold text-xs whitespace-pre-wrap">
+              {withdrawal.description || "No description provided"}
+            </p>
+              <button 
+                className="pt-1 flex items-center gap-1 text-xs bg-transparent text-blue-400 hover:text-blue-300"
+                onClick={() => window.open(`https://sepolia.arbiscan.io/tx/${withdrawal.tx_hash}`, '_blank')}
+              >
+                <span>View Transaction</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+    
+
 
   
   // console.log("check fundraise", selectedDonation.fundraise)
@@ -381,10 +460,10 @@ export function ContentFeedHome({ category }) {
 
 
   // the start update dummy data
-  const updateData =[
-{ id:"#sxabydg6x",amount:"$ 1000", title:"for food and cloths", createdAt: "2024-12-17",description:"We have withdrawn funds specifically to provide essential food and clothing to families affected by the recent floods and landslides in Bosnia, ensuring prompt and transparent relief efforts."},
-{ id:"sd#@ddncbeaj",amount:"$ 2000", title:"for Medicine and babies", createdAt: "2024-12-16",description:"We have withdrawn funds specifically to provide essential food and clothing to families affected by the recent floods and landslides in Bosnia, ensuring prompt and transparent relief efforts."}
-];
+//   const updateData =[
+// { id:"#sxabydg6x",amount:"$ 1000", title:"for food and cloths", createdAt: "2024-12-17",description:"We have withdrawn funds specifically to provide essential food and clothing to families affected by the recent floods and landslides in Bosnia, ensuring prompt and transparent relief efforts."},
+// { id:"sd#@ddncbeaj",amount:"$ 2000", title:"for Medicine and babies", createdAt: "2024-12-16",description:"We have withdrawn funds specifically to provide essential food and clothing to families affected by the recent floods and landslides in Bosnia, ensuring prompt and transparent relief efforts."}
+// ];
 
  // table block explorer section
  const txData = [
@@ -577,101 +656,28 @@ const donationsData = [
       case "Updates":
         return (
           <div className="text-gray-300">
-            {selectedDonation.updates || "No updates available for this campaign."}
-            {/* the start of body of updates */}
-            <div className=' mt-4 '>
-              <Table className="rounded-lg">
-                <TableHeader className="bg-white/10">
-                  <TableRow className="border-white/5 p-2">
-                    <TableHead className="font-bold border-white/1 rounded-tl-lg text-white">Fund Allocation</TableHead>
-                    <TableHead className="font-bold border-white/1  rounded-tr-lg text-white">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fundData.map((item, index) => (
-                    <TableRow key={index} className="bg-white/5 border-white/5">
-                      <TableCell className="font-medium text-white">{item.category}</TableCell>
-                      <TableCell className="font-medium text-white">{item.amount}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+           {selectedDonation && (
+        <>
+          {console.log("Selected Donation ID:", selectedDonation.id)}
+          {selectedDonation.id ? (
+            <WithdrawalsList contentId={selectedDonation.id} />
+          ) : (
+            <p>No withdrawal data available</p>
+          )}
+          <UpdateSection 
+            address={selectedDonation.address} 
+            getTimeDifference={getTimeDifference}
+          />
+        </>
+      )}
+       
+     
+          
 
-            {/* detail fund allocation */}
-            <div className="w-full mt-4 space-y-4">
-              {updateData.map((updates, index) => (
-                <div key={`${updates.id}-${index}`} className="flex flex-col gap-4 rounded-lg">
-                
-                <div className="flex items-center gap-2 ">
-                    <span className="font-bold text-lg text-white">{updates.amount}</span>
-                      <span className="font-bold text-sm">{updates.title}</span>
-                      <Dot className="w-4 h-4" />
-                      <span className="font-light text-sm">
-                        {getTimeDifference(updates.createdAt)}
-                      </span>
-                    </div>
-                  {/* Comment Content */}
-                  <div className="flex-1 flex flex-col bg-white/5 p-4 rounded-lg border border-[#5C7683]/20">
-                    {/* User Info */}
-                    
-
-                    {/* Comment Text */}
-                    <p className="font-semibold text-xs">{updates.description}</p>
-                    <button className="pt-1  flex items-center gap-1 text-xs text-blue-400 bg-transparent hover:text-blue-300 p-0 transition-colors">
-              <span>See Tx hash</span>
-            </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* block explorer updates */}
-            <div className="overflow-x-auto max-w-[612px] mt-4 rounded-t-lg">
-                            <Table className="rounded-lg">
-                                <TableHeader className="bg-white/10 ">
-                                    <TableRow className="border-white/5 p-2 rounded-lg">
-                                        <TableHead className="font-bold border-white/1 text-white  truncate max-w-[10px]">Transaction Hash</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Method</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Block</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Age</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">From</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">To</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Amount</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {txData.map((item, index) => (
-                                        <TableRow key={index} className="bg-white/5 border-white/5">
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.TransactionHash}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.Method}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.Block}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.Age}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.From}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.to}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.amount}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+       
 
 
-            {/* the end of body of updates */}
+        
 
             {/* footer note  */}
             <div className=" w-full justify-start mt-4">
@@ -898,89 +904,8 @@ const donationsData = [
         return (
           <div className="text-gray-300">
             Donation details and options will be displayed here.
-            {/* body of donate - leaderboard  */}
-            <div className="flex flex-col gap-4 p-6 rounded-lg bg-white/5  mt-4 max-w-md">
-      <span className="text-white text-lg font-bold">Top Donors</span>
-      
-      <div className="flex flex-col gap-3 ">
-        {donationsData.map((donation) => (
-          <div 
-            key={donation.id}
-            className={`flex items-center justify-between p-3 rounded-lg transition-colors
-              ${donation.id === 1 
-                ? 'bg-[#D16F57] hover:bg-[#D16F57]/90' 
-                : 'bg-white/5 hover:bg-white/10'}`}
-          >
-            {/* Left - number & picture */}
-            <div className="flex items-center gap-3">
-              <span className={`w-5 ${donation.id === 1 ? 'text-[#FFF7D7]' : 'text-white/60'}`}>
-                {donation.id}
-              </span>
-              <img 
-                src={donation.img} 
-                alt={`${donation.name}'s avatar`}
-                className="w-10 h-10 rounded-full"
-              />
-            </div>
-
-            {/* Middle - name */}
-            <div className="flex-1 px-4">
-              <span className={donation.id === 1 ? 'text-[#FFF7D7]' : 'text-white'}>
-                {donation.name}
-              </span>
-            </div>
-
-            {/* Right - amount */}
-            <div className={`font-medium ${donation.id === 1 ? 'text-[#FFF7D7]' : 'text-white'}`}>
-              {donation.amount}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-    {/* block explorer updates */}
-            <div className="overflow-x-auto max-w-[612px] mt-4 rounded-t-lg">
-                            <Table className="rounded-lg">
-                                <TableHeader className="bg-white/10 ">
-                                    <TableRow className="border-white/5 p-2 rounded-lg">
-                                        <TableHead className="font-bold border-white/1 text-white  truncate max-w-[10px]">Transaction Hash</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Method</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Block</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Age</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">From</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">To</TableHead>
-                                        <TableHead className="font-bold border-white/1 text-white">Amount</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {txData.map((item, index) => (
-                                        <TableRow key={index} className="bg-white/5 border-white/5">
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.TransactionHash}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.Method}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.Block}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.Age}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.From}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.to}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-white whitespace-nowrap">
-                                                {item.amount}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+          
+            <DonateSection address={selectedDonation.address} />
 
 
 
@@ -991,10 +916,10 @@ const donationsData = [
             <div className=" w-full justify-start mt-4">
               <Separator className=" bg-[#5C7683]" />
 
-              <div className="mt-4 inline-flex items-center"onClick={() => navigateToProfilePage(selectedDonation?.user.id)} >
+              <div className="mt-4 inline-flex items-center" onClick={() => navigateToProfilePage(selectedDonation?.user.id)} >
                 <Avatar className="h-8 w-8 mx-2 cursor-pointer">
-                <AvatarImage src={selectedDonation?.user.userimg} />
-                <AvatarFallback>CN</AvatarFallback>
+                  <AvatarImage src={selectedDonation?.user.userimg} />
+                  <AvatarFallback>CN</AvatarFallback>
                 </Avatar>
 
                 <div className="flex flex-col pl-2 text-md font-bold text-white">
@@ -1003,7 +928,7 @@ const donationsData = [
                 </div>
               </div>
               <div className="flex justify-start gap-2 pl-2 text-xs mt-1">
-              <SocialLinksSection selectedDonation={selectedDonation} />
+                <SocialLinksSection selectedDonation={selectedDonation} />
 
               </div>
               <div className="flex justify-start gap-2 pl-2 text-sm mt-2">
