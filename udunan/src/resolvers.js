@@ -160,6 +160,28 @@ const resolvers = {
       });
     },
 
+    donationsByContent: async (_, { contentId }) => {
+      try {
+        const donations = await prisma.donate.findMany({
+          where: {
+            contentId: contentId
+          },
+          include: {
+            donor: true,
+            content: true
+          },
+          orderBy: {
+            createdAt: 'desc'  // Most recent donations first
+          }
+        });
+        
+        return donations || []; // Ensure we always return an array
+      } catch (error) {
+        console.error('Error fetching donations:', error);
+        return []; // Return empty array on error
+      }
+    },
+
     withdrawalsByContent: async (_, { contentId }) => {
       return prisma.withdraw.findMany({
         where: {

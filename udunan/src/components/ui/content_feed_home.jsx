@@ -44,6 +44,24 @@ const GET_WITHDRAWALS = gql`
   }
 `;
 
+const GET_DONATIONS_BY_CONTENT = gql`
+  query GetDonationsByContent($contentId: ID!) {
+    donationsByContent(contentId: $contentId) {
+      id
+      amount
+      msg
+      createdAt
+      donor {
+        id
+        name
+        userimg
+      }
+      fromAddress
+      tx_hash
+    }
+  }
+`;
+
 const GET_CONTENTS = gql`
   query GetContents {
     contents {
@@ -312,6 +330,92 @@ export function ContentFeedHome({ category }) {
   
     return <SocialMediaIcons socialLinks={socialLinks} />;
   };
+
+
+  //hope section 
+
+  // Add this new component
+const DonationComments = ({ contentId }) => {
+  const { loading, error, data } = useQuery(GET_DONATIONS_BY_CONTENT, {
+    variables: { contentId },
+    skip: !contentId
+  });
+
+  console.log('DonationComments - contentId:', contentId);
+  console.log('DonationComments - loading:', loading);
+  console.log('DonationComments - error:', error);
+  console.log('DonationComments - data:', data);
+
+  if (loading) return <p>Loading comments...</p>;
+  if (error) return <p>Error loading comments: {error.message}</p>;
+  if (!data?.donationsByContent?.length) return <p>No donations yet.</p>;
+
+
+  console.log('Rendering donations:', data.donationsByContent);
+  return (
+    <div className="w-full mt-4 space-y-4">
+      
+      {data.donationsByContent.map((donation, index) => (
+        <div key={`${donation.id}-${index}`} className="flex gap-4 rounded-lg">
+          {/* Profile Picture */}
+          <div className="flex-shrink-0">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={donation.donor.userimg} />
+              <AvatarFallback>{donation.donor.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+          </div>
+
+          {/* Comment Content */}
+          <div className="flex-1 flex flex-col bg-white/5 p-4 rounded-lg border border-[#5C7683]/20">
+            {/* User Info */}
+            <div className="flex items-center gap-2 mb-2">
+            <span className="font-bold text-sm">
+                {donation.donor.name.length > 10 
+                  ? `${donation.donor.name.slice(0, 10)}...` 
+                  : donation.donor.name}
+              </span>
+              <Dot className="w-4 h-4" />
+              <span className="font-light text-sm">
+                {(() => {
+                  const donationDate = new Date(Number(donation.createdAt));
+                  const now = new Date();
+                  const diffTime = Math.abs(now - donationDate);
+                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  
+                  if (diffDays === 0) {
+                    return 'Today';
+                  } else if (diffDays === 1) {
+                    return 'Yesterday';
+                  } else {
+                    return `${diffDays} days ago`;
+                  }
+                })()}
+              </span>
+              {/* <span className="font-bold text-sm text-[#5794D1]">
+                {donation.amount} ETH
+              </span> */}
+            </div>
+
+            {/* Donation Message */}
+            <p className="font-semibold text-xs">
+              {donation.msg || "Made a donation"}
+            </p>
+            
+            {/* Transaction Address */}
+            {/* <div className="mt-2 text-xs text-gray-400">
+              From: {donation.fromAddress.slice(0, 6)}...{donation.fromAddress.slice(-4)}
+            </div> */}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+
+
+
+  //update section
 
   const WithdrawalsList = ({ contentId }) => {
     const { loading, error, data } = useQuery(GET_WITHDRAWALS, {
@@ -715,37 +819,11 @@ const donationsData = [
       case "Hope":
         return (
           <div className="text-gray-300">
-            {selectedDonation.hope || "Share the hope behind this campaign."}
+          
             {/* Comments Section */}
-            <div className="w-full mt-4 space-y-4">
-              {commentData.map((comment, index) => (
-                <div key={`${comment.user_id}-${index}`} className="flex gap-4  rounded-lg">
-                  {/* Profile Picture */}
-                  <div className="flex-shrink-0">
-                    <img
-                      src={comment.profile_pict}
-                      alt={`${comment.name}'s profile`}
-                      className="w-10 h-10 rounded-full"
-                    />
-                  </div>
-
-                  {/* Comment Content */}
-                  <div className="flex-1 flex flex-col bg-white/5 p-4 rounded-lg border border-[#5C7683]/20">
-                    {/* User Info */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-bold text-sm">{comment.name}</span>
-                      <Dot className="w-4 h-4" />
-                      <span className="font-light text-sm">
-                        {getTimeDifference(comment.createdAt)}
-                      </span>
-                    </div>
-
-                    {/* Comment Text */}
-                    <p className="font-semibold text-xs">{comment.comment}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {selectedDonation && (
+        <DonationComments contentId={selectedDonation.id} />
+      )}
 
             {/* footer note  */}
             <div className=" w-full justify-start mt-4">
