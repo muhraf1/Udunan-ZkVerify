@@ -28,5 +28,5 @@ cd udunan
 npm run start  # Start the back-end server
 ```
 
-Developed by the Udunan-ZkVerify Team 🚀
+Developed by the muh_raf1
 
