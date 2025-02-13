@@ -1,2 +1,15 @@
-** U-Dunan ZkvVerify **
-Transparency and sovereignty have always been key issues for Charity Foundations. With the use of the smart aid account ERC-4337, onboarding users via email and constructing smart accounts has made donating, opening campaigns, and starting fundraisers easier than ever. The addition of an anonymous feature using Tornado Cash, along with verification via zkVerify, enables contributions to the Web3 realm without compromising privacy.
+How to Run the Program
+Follow the steps below to set up and run the application:
+
+Front-End Setup:
+Clone the repository:
+git clone https://github.com/muhraf1/Udunan-ZkVerify.git
+Navigate to the project directory:
+cd udunan
+Install the required dependencies:
+npm install
+Start the front-end development server:
+npm run dev
+Back-End Setup:
+Open a new terminal, navigate to the same project (cosmic-ledgers) directory, and install back-end dependencies, Start the back-end server:
+npm run start
